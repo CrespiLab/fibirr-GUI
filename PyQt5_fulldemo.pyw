@@ -56,15 +56,19 @@ Improve code:
 """
 #!/usr/bin/env python3
 # from ast import Str ## not used, but should be replaced by ast.Constant
-from inspect import FullArgSpec
-import os
-import platform
+# from inspect import FullArgSpec
+# import os
+# import platform
+
 import sys
+import ctypes
 import time
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.QtWidgets import *
-from avaspec import *
+
+from PyQt5.QtCore import QTimer, pyqtSignal, pyqtSlot, QDateTime, Qt
+from PyQt5.QtWidgets import (QMainWindow, QAbstractItemView, QTableWidgetItem, 
+                             QMessageBox, QListWidget, qApp, QFileDialog, QApplication)
+
+import avaspec as ava
 import globals
 import qtdemo
 import analog_io_demo
@@ -93,9 +97,6 @@ SHUTTER_CLOSE = 0 ## value to close shutter
     ## add to on_ActivateBtn_clicked
 portID_pin12_DO4 = 3 ## portID of pin that controls the shutter
     ## re-name to PortID_InternalLightSource = 3
-
-
-
 ########
 
 ##############################
@@ -169,7 +170,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         
         # self.dstrStatus.connect(self.handle_dstrstatus) ## Dynamics STR function
         self.DisableGraphChk.stateChanged.connect(self.on_DisableGraphChk_stateChanged)
-        AVS_Done()
+        ava.AVS_Done()
     
     ###########################################
     ## address of the callback function that has to be defined in the user
@@ -201,7 +202,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             la_Port = 256
         # if (self.ConnectBothRBtn.isChecked()):
         #     la_Port = -1      
-        l_Ret = AVS_Init(la_Port) ## Initializes the communication interface with the spectrometers (avaspec.py)
+        l_Ret = ava.AVS_Init(la_Port) ## Initializes the communication interface with the spectrometers (avaspec.py)
         if (l_Ret > 0):
             if (self.ConnectUSBRBtn.isChecked()):
                 self.statusBar.showMessage("Initialized: USB (found devices: {0:d})".format(l_Ret))
@@ -215,13 +216,13 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             if (l_Ret == 0):
                 self.statusBar.showMessage("No spectrometer found on network!")
             else:
-                if (l_Ret == ERR_ETHCONN_REUSE):
+                if (l_Ret == ava.ERR_ETHCONN_REUSE):
                     # A list of spectrometers can still be provided by the DLL
                     self.statusBar.showMessage("Server error; another instance is running!")
                     self.on_UpdateListBtn_clicked()
                 else:
                     self.statusBar.showMessage("Server error; open communication failed with AVS_Init() error: {0:d}".format(l_Ret))
-            AVS_Done()
+            ava.AVS_Done()
             # QMessageBox.critical(self,"Error","No devices were found!") 
         return
 
@@ -229,11 +230,11 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     def on_CloseCommBtn_clicked(self):
         # First make sure that there is no measurement running, AVS_Done() must be called when 
         # there is no measurement running!
-        if (globals.dev_handle != INVALID_AVS_HANDLE_VALUE):
-            AVS_StopMeasure(globals.dev_handle)
-            AVS_Deactivate(globals.dev_handle) 
-            globals.dev_handle = INVALID_AVS_HANDLE_VALUE
-        AVS_Done()
+        if (globals.dev_handle != ava.INVALID_AVS_HANDLE_VALUE):
+            ava.AVS_StopMeasure(globals.dev_handle)
+            ava.AVS_Deactivate(globals.dev_handle) 
+            globals.dev_handle = ava.INVALID_AVS_HANDLE_VALUE
+        ava.AVS_Done()
         self.DisconnectGui()  
         self.statusBar.showMessage('')
         self.SpectrometerList.clearContents()
@@ -250,9 +251,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             globals.mSelectedDevRow = 0
         self.SpectrometerList.clearContents()
         if (self.ConnectUSBRBtn.isChecked()):
-            lUsbDevListSize = AVS_UpdateUSBDevices()
-            l_pId = AvsIdentityType * lUsbDevListSize
-            l_pId = AVS_GetList(lUsbDevListSize)
+            lUsbDevListSize = ava.AVS_UpdateUSBDevices()
+            l_pId = ava.AvsIdentityType * lUsbDevListSize
+            l_pId = ava.AVS_GetList(lUsbDevListSize)
             self.SpectrometerList.setColumnCount(self.SPECTR_LIST_COLUMN_COUNT)
             self.SpectrometerList.setRowCount(lUsbDevListSize)
             x = 0
@@ -269,10 +270,10 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 x += 1 
 
         if (self.ConnectEthernetRBtn.isChecked()):  
-            l_pEth = AVS_UpdateETHDevices(1)
+            l_pEth = ava.AVS_UpdateETHDevices(1)
             lEthListSize = len(l_pEth)
-            l_pId = AvsIdentityType * lEthListSize
-            l_pId = AVS_GetList(lEthListSize)
+            l_pId = ava.AvsIdentityType * lEthListSize
+            l_pId = ava.AVS_GetList(lEthListSize)
             self.SpectrometerList.setColumnCount(self.SPECTR_LIST_COLUMN_COUNT)
             self.SpectrometerList.setRowCount(lEthListSize)
             x = 0
@@ -307,15 +308,15 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         if (len(self.SpectrometerList.selectedItems()) == 0): 
             QMessageBox.critical(self, "Qt Demo", "Please select the Serial Number of the device to activate")
         else:
-            l_Id = AvsIdentityType * 1
+            l_Id = ava.AvsIdentityType * 1
             l_Items = QListWidget()
             l_Items = self.SpectrometerList.selectedItems()
             l_Text = l_Items[0].text()
             l_Id.SerialNumber = l_Text.encode('utf-8')
             l_Id.UserFriendlyName = b"\x00"
             l_Id.Status = b"\x01"
-            globals.dev_handle = AVS_Activate(l_Id)
-            if (INVALID_AVS_HANDLE_VALUE == globals.dev_handle):
+            globals.dev_handle = ava.AVS_Activate(l_Id)
+            if (ava.INVALID_AVS_HANDLE_VALUE == globals.dev_handle):
                 QMessageBox.critical(self, "Qt Demo", "Error opening device {}".format(l_Text))
             else:
                 m_Identity = l_Id
@@ -327,7 +328,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     ## sets integration time and #averages to EEPROM default
                     ##!!! as an initial fix: set here IntTimeEdt and AvgEdt
                 dtype = 0
-                dtype = AVS_GetDeviceType(globals.dev_handle)  
+                dtype = ava.AVS_GetDeviceType(globals.dev_handle)  
                 if (dtype == 0):
                     self.DeviceTypeEdt.setText("Unknown")
                 if (dtype == 1):
@@ -340,7 +341,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     self.DeviceTypeEdt.setText("AS7007")                    
                 # self.DstrRBtn.setEnabled(dtype == 3)  # only available on AS7010
                 ######
-                AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
         return
 
 ##!!! ADD def for DarkMeas and RefMeas buttons
@@ -355,9 +356,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         if MODE == "DEMO":
             print("DEMO MODE: on_DarkMeasBtn_clicked clicked")
         else:
-            ret = AVS_UseHighResAdc(globals.dev_handle, True)
-            ret = AVS_EnableLogging(False)
-            measconfig = MeasConfigType()
+            ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
+            ret = ava.AVS_EnableLogging(False)
+            measconfig = ava.MeasConfigType()
             measconfig.m_StartPixel = int(self.StartPixelEdt.text())
             measconfig.m_StopPixel = int(self.StopPixelEdt.text())
             measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
@@ -381,13 +382,13 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
             
     
-            ret = AVS_PrepareMeasure(globals.dev_handle, measconfig)
-            if (globals.DeviceData.m_Detector_m_SensorType == SENS_TCD1304):
-                AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
-            if ((globals.DeviceData.m_Detector_m_SensorType == SENS_HAMS9201) or 
-                (globals.DeviceData.m_Detector_m_SensorType == SENS_SU256LSB) or
-                (globals.DeviceData.m_Detector_m_SensorType == SENS_SU512LDB)):
-                AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
+            ret = ava.AVS_PrepareMeasure(globals.dev_handle, measconfig)
+            if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
+                ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
+            if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
+                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB) or
+                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB)):
+                ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
             ###########################################
             l_NrOfScans = int(1) # 1 scan
             
@@ -407,8 +408,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             globals.stoppixel = measconfig.m_StopPixel
     
             ###########################################
-            avs_cb = AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
-            l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
+            avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
+            l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
              ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
              ## l_Res returns (=) 0 if the measurement callback is successfully started
             if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
@@ -418,7 +419,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 # ##### CLOSE SHUTTER ##### just to be sure
                 print("this gets executed") 
                 
-                AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
                 time.sleep(0.5) ## short delay between Close Shutter and Measure
                 while globals.m_Measurements <= l_NrOfScans:
                     time.sleep(0.001)
@@ -454,9 +455,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                                                            "Comma-separated values (.csv)")
             print(f"PRINTED globals.filename[0]: {globals.filename[0]}")
             ################################################################
-            ret = AVS_UseHighResAdc(globals.dev_handle, True)
-            ret = AVS_EnableLogging(False)
-            measconfig = MeasConfigType() ## contains specific configuration and gets used later
+            ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
+            ret = ava.AVS_EnableLogging(False)
+            measconfig = ava.MeasConfigType() ## contains specific configuration and gets used later
                                             ## with ret = AVS_PrepareMeasure
             measconfig.m_StartPixel = int(self.StartPixelEdt.text())
             measconfig.m_StopPixel = int(self.StopPixelEdt.text())
@@ -480,13 +481,13 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 measconfig.m_Trigger_m_Mode = 1
                 ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
             ###########################################
-            ret = AVS_PrepareMeasure(globals.dev_handle, measconfig)
-            if (globals.DeviceData.m_Detector_m_SensorType == SENS_TCD1304):
-                AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
-            if ((globals.DeviceData.m_Detector_m_SensorType == SENS_HAMS9201) or 
-                (globals.DeviceData.m_Detector_m_SensorType == SENS_SU256LSB) or
-                (globals.DeviceData.m_Detector_m_SensorType == SENS_SU512LDB)):
-                AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
+            ret = ava.AVS_PrepareMeasure(globals.dev_handle, measconfig)
+            if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
+                ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
+            if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
+                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB) or
+                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB)):
+                ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
             ###########################################
             if globals.MeasurementType == "Dark": ## added
                 l_NrOfScans = int(1)
@@ -534,8 +535,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 ##!!! I think this function is incomplete, because it does not contain l_NrOfScans??
                 lmeas = 0
                 while (self.StartMeasBtn.isEnabled() == False):
-                    avs_cb = AVS_MeasureCallbackFunc(self.measure_cb)
-                    l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, 1)
+                    avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb)
+                    l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, 1)
                     while (globals.m_Measurements - lmeas) < 1: ##!!! what is globals.m_Measurements: the number of measurements made?
                                                             ## yes: it gets counted at handle_newdata
                                                             ## but when does that get called?
@@ -545,8 +546,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     ##!!! add shutter OPEN-CLOSE code here??
             ###########################################
             else:    
-                avs_cb = AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
-                l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
+                avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
+                l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
                 ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
                     ## it is defined above and depends on which Measurement Mode option is checked
                 ## l_Res returns (=) 0 if the measurement callback is successfully started
@@ -559,14 +560,14 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         #######
                         ##!!! CHECK digital_io_demo.py for SetDigOut shenanigans
                         ## OPEN SHUTTER ###
-                        AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
                         time.sleep(1.0) ## short delay between Open Shutter and Measure
                         # time.sleep(0.001)
                         qApp.processEvents()
                     
                         ##### CLOSE SHUTTER #####
                         time.sleep(1.0) ## short delay between Measure and Close Shutter
-                        AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
                         #######
                 
                     elif (self.FixedNrRBtn.isChecked()):
@@ -577,7 +578,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         for i in range(l_NrOfScans):
 		
                         ### OPEN SHUTTER ###
-                            AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                            ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
                             time.sleep(0.5) ## short delay between Open Shutter and Measure
                         
                         ######## MY WAY ########
@@ -593,7 +594,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         #######################
                         # ##### CLOSE SHUTTER #####
                             time.sleep(0.5) ## short delay between Open Shutter and Measure
-                            AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                            ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
                             time.sleep(0.5) ## delay between Close Shutter and Open Shutter
 
                 #######
@@ -609,7 +610,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
     @pyqtSlot()
     def on_StopMeasBtn_clicked(self): 
-        ret = AVS_StopMeasure(globals.dev_handle)
+        ret = ava.AVS_StopMeasure(globals.dev_handle)
         self.StartMeasBtn.setEnabled(True)
         self.timer.stop()
         return
@@ -631,7 +632,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     self.statusBar.showMessage("Meas.Status: success")
                     timestamp = 0
                     globals.m_Measurements += 1 ## counter for number of measurements
-                    timestamp, globals.spectraldata = AVS_GetScopeData(globals.dev_handle)
+                    timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
                     ## globals.spectraldata is the intensity/pixel data that I need
                     ## in what format is this data: 4096 element array of doubles
                     ##################
@@ -672,7 +673,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     ##################
 
                     ######################################################
-                    globals.saturated = AVS_GetSaturatedPixels(globals.dev_handle)
+                    globals.saturated = ava.AVS_GetSaturatedPixels(globals.dev_handle)
                     SpectrumIsSatured = False
                     j = 0
                     while j < (globals.stoppixel - globals.startpixel):
@@ -720,7 +721,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     self.statusBar.showMessage("Meas.Status: Reading RAM")
                     j = 0
                     while j < lerror:
-                        timestamp, globals.spectraldata = AVS_GetScopeData(globals.dev_handle)
+                        timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
                         # self.plot.update_plot()
                         l_Dif = timestamp - globals.m_PreviousTimeStamp  # timestamps in 10 us ticks
                         globals.m_PreviousTimeStamp = timestamp
@@ -773,8 +774,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 ##!!! don't need EEPROM I think
     @pyqtSlot()
     def on_ReadEepromBtn_clicked(self):
-        l_DeviceData = DeviceConfigType()
-        l_DeviceData = AVS_GetParameter(globals.dev_handle, 63484)
+        l_DeviceData = ava.DeviceConfigType()
+        l_DeviceData = ava.AVS_GetParameter(globals.dev_handle, 63484)
         #### show measurement settings
         self.StartPixelEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_StartPixel))
         self.StopPixelEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_StopPixel))
@@ -814,8 +815,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
     @pyqtSlot()
     def on_WriteEepromBtn_clicked(self): 
-        l_DeviceData = DeviceConfigType()
-        l_DeviceData = AVS_GetParameter(globals.dev_handle, 63484)
+        l_DeviceData = ava.DeviceConfigType()
+        l_DeviceData = ava.AVS_GetParameter(globals.dev_handle, 63484)
         l_DeviceData.m_StandAlone_m_Meas_m_StartPixel = int(self.StartPixelEdt.text())
         l_DeviceData.m_StandAlone_m_Meas_m_StopPixel =  int(self.StopPixelEdt.text())
         l_DeviceData.m_StandAlone_m_Meas_m_IntegrationTime = float(self.IntTimeEdt.text())
@@ -852,7 +853,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         l_DeviceData.m_StandAlone_m_Nmsr = int(self.NrMeasEdt.text())
         # write measurement parameters
         # debug = ctypes.sizeof(l_DeviceData)
-        l_Ret = AVS_SetParameter(globals.dev_handle, l_DeviceData)
+        l_Ret = ava.AVS_SetParameter(globals.dev_handle, l_DeviceData)
         if (0 != l_Ret):
             QMessageBox.critical(self, "Qt Demo", "AVS_SetParameter failed, code {0:d}".format(l_Ret))
         return        
@@ -864,44 +865,44 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         return      
 
     def ConnectGui(self):
-        versions = AVS_GetVersionInfo(globals.dev_handle)
+        versions = ava.AVS_GetVersionInfo(globals.dev_handle)
         self.FPGAVerEdt.setText("{}".format(str(versions[0],"utf-8")))
         self.FirmwareVerEdt.setText("{}".format(str(versions[1],"utf-8")))
         self.DLLVerEdt.setText("{}".format(str(versions[2],"utf-8")))
-        globals.DeviceData = DeviceConfigType()
-        globals.DeviceData = AVS_GetParameter(globals.dev_handle, 63484)
-        lDetectorName = AVS_GetDetectorName(globals.dev_handle, globals.DeviceData.m_Detector_m_SensorType)
+        globals.DeviceData = ava.DeviceConfigType()
+        globals.DeviceData = ava.AVS_GetParameter(globals.dev_handle, 63484)
+        lDetectorName = ava.AVS_GetDetectorName(globals.dev_handle, globals.DeviceData.m_Detector_m_SensorType)
         a_DetectorName = str(lDetectorName,"utf-8").split("\x00") 
         self.DetectorEdt.setText("{}".format(a_DetectorName[0]))
-        if (globals.DeviceData.m_Detector_m_SensorType == SENS_HAMS9201):
+        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201):
             self.SetNirSensitivityRgrp.show()
             self.LowNoiseRBtn.setChecked(True)  # LowNoise default for HAMS9201
             self.HighSensitivityRBtn.setChecked(False)
-            AVS_SetSensitivityMode(globals.dev_handle, 0)
-        if (globals.DeviceData.m_Detector_m_SensorType == SENS_TCD1304):    
+            ava.AVS_SetSensitivityMode(globals.dev_handle, 0)
+        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):    
             self.PreScanChk.show()    
             self.PreScanChk.setCheckState(Qt.Checked)
-            l_Res = AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked()) 
-        if (globals.DeviceData.m_Detector_m_SensorType == SENS_SU256LSB):
+            l_Res = ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked()) 
+        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB):
             self.SetNirSensitivityRgrp.show()
             self.LowNoiseRBtn.setChecked(False)
             self.HighSensitivityRBtn.setChecked(True)  # High Sensitive default for SU256LSB
-            l_Res = AVS_SetSensitivityMode(globals.dev_handle, 1)
-        if (globals.DeviceData.m_Detector_m_SensorType == SENS_SU512LDB):
+            l_Res = ava.AVS_SetSensitivityMode(globals.dev_handle, 1)
+        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB):
             self.SetNirSensitivityRgrp.show()
             self.LowNoiseRBtn.setChecked(False)
             self.HighSensitivityRBtn.setChecked(True)  # High Sensitive default for SU512LDB
-            l_Res = AVS_SetSensitivityMode(globals.dev_handle, 1) 
-        if (globals.DeviceData.m_Detector_m_SensorType == SENS_HAMG9208_512):
+            l_Res = ava.AVS_SetSensitivityMode(globals.dev_handle, 1) 
+        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMG9208_512):
             self.SetNirSensitivityRgrp.show()
             self.LowNoiseRBtn.setChecked(True)  # low noise default
             self.HighSensitivityRBtn.setChecked(False)
-            l_Res = AVS_SetSensitivityMode(globals.dev_handle, 0) 
+            l_Res = ava.AVS_SetSensitivityMode(globals.dev_handle, 0) 
         globals.pixels = globals.DeviceData.m_Detector_m_NrPixels
         self.NrPixelsEdt.setText("{0:d}".format(globals.pixels))
         globals.startpixel = globals.DeviceData.m_StandAlone_m_Meas_m_StartPixel
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
-        globals.wavelength = AVS_GetLambda(globals.dev_handle) ## wavelength data here
+        globals.wavelength = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
         return
 
     def DisconnectGui(self):
@@ -941,8 +942,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
     @pyqtSlot()
     def on_DeactivateBtn_clicked(self):
-        ret = AVS_Deactivate(globals.dev_handle)
-        globals.dev_handle = INVALID_AVS_HANDLE_VALUE
+        ret = ava.AVS_Deactivate(globals.dev_handle)
+        globals.dev_handle = ava.INVALID_AVS_HANDLE_VALUE
         self.on_UpdateListBtn_clicked()
         self.DisconnectGui()
         return
@@ -967,7 +968,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
     @pyqtSlot()
     def on_ResetSpectrometerBtn_clicked(self):
-        l_Ret = AVS_ResetDevice( globals.dev_handle)
+        l_Ret = ava.AVS_ResetDevice( globals.dev_handle)
         if (0 != l_Ret):
             QMessageBox.critical(self, "Qt Demo", "AVS_ResetDevice failed, code {0:d}".format(l_Ret))
         else:
