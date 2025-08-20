@@ -56,7 +56,7 @@ Improve code:
 """
 #!/usr/bin/env python3
 # from ast import Str ## not used, but should be replaced by ast.Constant
-# from inspect import FullArgSpec
+import inspect
 # import os
 # import platform
 
@@ -129,10 +129,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.DigitalIoBtn.setEnabled(False)
         self.AnalogIoBtn.setEnabled(False)
         ###########################################
-        self.IntTimeEdt.setText("1") ## default 1 ms integration time
-        ##!!! how to make it actually store these defaults??
-        self.AvgEdt.setText("100") ## default 100 averages
-        ###########################################
         self.ShowEepromBtn.setEnabled(False)
         self.ReadEepromBtn.setEnabled(False)
         self.WriteEepromBtn.setEnabled(False)
@@ -158,8 +154,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         ###########################################
         self.SpectrometerList.clicked.connect(self.on_SpectrometerList_clicked)
 #       self.OpenCommBtn.clicked.connect(self.on_OpenCommBtn_clicked)
-#       for buttons, do not use explicit connect together with the on_ notation, or you will get
-#       two signals instead of one!
+    #       for buttons, do not use explicit connect together with the on_ notation, or you will get
+    #       two signals instead of one!
         self.timer.timeout.connect(self.update_plot)
         self.timer.stop()
         
@@ -193,7 +189,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
     @pyqtSlot()
 #   if you leave out the @pyqtSlot() line, you will also get an extra signal!
-#   so you might even get three!
+    #   so you might even get three!
     def on_OpenCommBtn_clicked(self):
         self.statusBar.showMessage('Open communication busy')
         la_Port = 0
@@ -327,7 +323,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 # print(f"globals.wavelength: {globals.wavelength}")
                 self.on_ReadEepromBtn_clicked() ## the ReadEepromBtn gets clicked: see def below
                     ## sets integration time and #averages to EEPROM default
-                    ##!!! as an initial fix: set here IntTimeEdt and AvgEdt
+                self.DefaultSettings() # set default settings
                 dtype = 0
                 dtype = ava.AVS_GetDeviceType(globals.dev_handle)  
                 if (dtype == 0):
@@ -345,6 +341,56 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
         return
 
+###############################################################################
+###############################################################################
+###############################################################################
+    def print_vars(self, *args):
+        for v in args:
+            # Find all attribute names on self that reference this value
+            names = [name for name, val in self.__dict__.items() if val is v]
+            if names:
+                print(f"{names[0]} = {v}")
+            else:
+                print(f"<unknown> = {v}")
+
+    def print_settings(self):
+        self.print_vars(self.measconfig.m_StartPixel, self.measconfig.m_StopPixel,
+                        self.measconfig.m_IntegrationTime, self.measconfig.m_IntegrationDelay,
+                        self.measconfig.m_NrAverages, 
+                        self.measconfig.m_CorDynDark_m_Enable, self.measconfig.m_CorDynDark_m_ForgetPercentage,
+                        self.measconfig.m_SaturationDetection,
+                        self.measconfig.m_Trigger_m_Mode)
+
+    @pyqtSlot()
+    def on_SettingsBtn_clicked(self):
+        print("on_SettingsBtn_clicked")
+        # self.measconfig = ava.MeasConfigType()
+        self.measconfig.m_StartPixel = int(self.StartPixelEdt.text())
+        self.measconfig.m_StopPixel = int(self.StopPixelEdt.text())
+        self.measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
+        
+        l_NanoSec =  float(self.IntDelayEdt.text())
+        self.measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
+        
+        self.measconfig.m_NrAverages = int(self.AvgEdt.text())
+        ####
+        self.measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
+        self.measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text()) ## sets percentage (100% is recommended)
+        ####
+        # self.measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
+        # self.measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
+        ####
+        self.measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
+        ###########################################
+        if (self.InternalTriggerBtn.isChecked()):
+            self.measconfig.m_Trigger_m_Mode = 0
+            ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
+        if (self.ExternalTriggerBtn.isChecked()):
+            self.measconfig.m_Trigger_m_Mode = 1
+            ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
+
+        self.print_settings()
+
 ##!!! ADD def for DarkMeas and RefMeas buttons
 ##!!! ADD a check  for Intensity and Absorbance modes
     ## self.AbsorbanceMode.isChecked()
@@ -354,36 +400,14 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 ##!!! adjust according to the updated on_StartMeasBtn_clicked()
     @pyqtSlot()
     def on_DarkMeasBtn_clicked(self):
+        print("on_DarkMeasBtn_clicked")
+        self.print_settings()
         if MODE == "DEMO":
             print("DEMO MODE: on_DarkMeasBtn_clicked clicked")
         elif MODE == "EXP":
             ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
             ret = ava.AVS_EnableLogging(False)
-            measconfig = ava.MeasConfigType()
-            measconfig.m_StartPixel = int(self.StartPixelEdt.text())
-            measconfig.m_StopPixel = int(self.StopPixelEdt.text())
-            measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
-            l_NanoSec =  float(self.IntDelayEdt.text())
-            measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
-            measconfig.m_NrAverages = int(self.AvgEdt.text())
-            ####
-            measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
-            measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text()) ## sets percentage (100% is recommended)
-            ####
-            # measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
-            # measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
-            ####
-            measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
-            ###########################################
-            if (self.InternalTriggerBtn.isChecked()):
-                measconfig.m_Trigger_m_Mode = 0
-                ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
-            if (self.ExternalTriggerBtn.isChecked()):
-                measconfig.m_Trigger_m_Mode = 1
-                ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
-            
-    
-            ret = ava.AVS_PrepareMeasure(globals.dev_handle, measconfig)
+            ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
             if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
                 ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
             if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
@@ -405,8 +429,10 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 self.NrFailuresEdt.setText("{0:d}".format(0))
             self.DarkMeasBtn.setEnabled(False) 
             self.timer.start(200)   
-            globals.startpixel = measconfig.m_StartPixel
-            globals.stoppixel = measconfig.m_StopPixel
+            
+            
+            # globals.startpixel = self.measconfig.m_StartPixel
+            # globals.stoppixel = self.measconfig.m_StopPixel
     
             ###########################################
             avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
@@ -458,31 +484,35 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             ################################################################
             ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
             ret = ava.AVS_EnableLogging(False)
-            measconfig = ava.MeasConfigType() ## contains specific configuration and gets used later
-                                            ## with ret = AVS_PrepareMeasure
-            measconfig.m_StartPixel = int(self.StartPixelEdt.text())
-            measconfig.m_StopPixel = int(self.StopPixelEdt.text())
-            measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
-            l_NanoSec =  float(self.IntDelayEdt.text())
-            measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
-            measconfig.m_NrAverages = int(self.AvgEdt.text())
-            ####
-            measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked()
-            measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text())
+            
+            
+            # measconfig = ava.MeasConfigType() ## contains specific configuration and gets used later
+            #                                 ## with ret = AVS_PrepareMeasure
+            # measconfig.m_StartPixel = int(self.StartPixelEdt.text())
+            # measconfig.m_StopPixel = int(self.StopPixelEdt.text())
+            # measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
+            # l_NanoSec =  float(self.IntDelayEdt.text())
+            # measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
+            # measconfig.m_NrAverages = int(self.AvgEdt.text())
+            # ####
+            # measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked()
+            # measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text())
             ####
             # measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
             # measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
             ####
-            measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
+            # measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
             ###########################################
-            if (self.InternalTriggerBtn.isChecked()):
-                measconfig.m_Trigger_m_Mode = 0
-                ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
-            if (self.ExternalTriggerBtn.isChecked()):
-                measconfig.m_Trigger_m_Mode = 1
-                ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
+            # if (self.InternalTriggerBtn.isChecked()):
+            #     measconfig.m_Trigger_m_Mode = 0
+            #     ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
+            # if (self.ExternalTriggerBtn.isChecked()):
+            #     measconfig.m_Trigger_m_Mode = 1
+            #     ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
+            
+            
             ###########################################
-            ret = ava.AVS_PrepareMeasure(globals.dev_handle, measconfig)
+            ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
             if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
                 ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
             if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
@@ -513,8 +543,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 self.NrFailuresEdt.setText("{0:d}".format(0))
             self.StartMeasBtn.setEnabled(False) 
             self.timer.start(200)   
-            globals.startpixel = measconfig.m_StartPixel
-            globals.stoppixel = measconfig.m_StopPixel
+            
+            # globals.startpixel = measconfig.m_StartPixel
+            # globals.stoppixel = measconfig.m_StopPixel
             
             ###########################################
             ###!!! add an if-check for the Ref having been measured
@@ -772,6 +803,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     #             self.DstrProgBar.setValue(l_DstrStatus.m_UsedScans)      
     #     return    
 
+##!!! don't need EEPROM I think
     @pyqtSlot()
     def on_ReadEepromBtn_clicked(self):
         '''
@@ -869,6 +901,10 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         return      
 
     def ConnectGui(self):
+        '''
+        Functions is activated upon activating the connection with the spectrometer,
+            i.e. by on_ActivateBtn_clicked
+        '''
         versions = ava.AVS_GetVersionInfo(globals.dev_handle)
         self.FPGAVerEdt.setText("{}".format(str(versions[0],"utf-8")))
         self.FirmwareVerEdt.setText("{}".format(str(versions[1],"utf-8")))
@@ -907,8 +943,36 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         globals.startpixel = globals.DeviceData.m_StandAlone_m_Meas_m_StartPixel
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
         globals.wavelength = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
+
         return
 
+    def DefaultSettings(self):
+        self.measconfig = ava.MeasConfigType()
+        self.measconfig.m_StartPixel = globals.startpixel
+        self.measconfig.m_StopPixel = globals.stoppixel
+        
+        l_NanoSec =  float(self.IntDelayEdt.text())
+        self.measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
+        print(f"self.measconfig.m_IntegrationDelay: {self.measconfig.m_IntegrationDelay}")
+        
+        self.measconfig.m_IntegrationTime = 3 # default integration time (ms)
+        print(f"self.measconfig.m_IntegrationTime: {self.measconfig.m_IntegrationTime}")
+        self.IntTimeEdt.setText(f"{self.measconfig.m_IntegrationTime:0.1f}") 
+        
+        self.measconfig.m_NrAverages = 100
+        self.AvgEdt.setText(f"{self.measconfig.m_NrAverages:0d}") ## default # averages
+        
+        self.measconfig.m_CorDynDark_m_Enable = 1
+        self.DarkCorrChk.setChecked(True)
+
+        self.measconfig.m_CorDynDark_m_ForgetPercentage = 100
+        self.DarkCorrPercEdt.setText(f"{self.measconfig.m_CorDynDark_m_ForgetPercentage:0d}")
+        
+        self.measconfig.m_SaturationDetection = 1
+        self.SatDetEdt.setText(f"{self.measconfig.m_SaturationDetection:0d}")
+        self.measconfig.m_Trigger_m_Mode = 0
+        self.InternalTriggerBtn.setChecked(True)
+        
     def DisconnectGui(self):
         self.DetectorEdt.clear()
         self.NrPixelsEdt.clear()
