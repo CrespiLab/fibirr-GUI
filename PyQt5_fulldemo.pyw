@@ -76,6 +76,9 @@ import eeprom_demo
 ##############################
 import numpy as np
 import pandas as pd
+
+####!!! DEMO MODE ###
+MODE = "DEMO"
 ##############################
 
 ##############################
@@ -346,260 +349,263 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     ###!!! add an if-check for the Ref having been measured
 
 ##!!! BUTTON DOESN'T WORK FOR SOME REASON.......
-    @pyqtSlot()
-    def on_TestBtn_clicked(self):
-        print("PRINTED LINE 350 TEST")
-
-##!!! BUTTON DOESN'T WORK FOR SOME REASON.......
 ##!!! adjust according to the updated on_StartMeasBtn_clicked()
     @pyqtSlot()
     def on_DarkMeasBtn_clicked(self):
-        print("PRINTED LINE 355: DarkMeasBtn clicked")
-        
-        ret = AVS_UseHighResAdc(globals.dev_handle, True)
-        ret = AVS_EnableLogging(False)
-        measconfig = MeasConfigType()
-        measconfig.m_StartPixel = int(self.StartPixelEdt.text())
-        measconfig.m_StopPixel = int(self.StopPixelEdt.text())
-        measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
-        l_NanoSec =  float(self.IntDelayEdt.text())
-        measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
-        measconfig.m_NrAverages = int(self.AvgEdt.text())
-        ####
-        measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
-        measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text()) ## sets percentage (100% is recommended)
-        ####
-        # measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
-        # measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
-        ####
-        measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
-        ###########################################
-        if (self.InternalTriggerRBtn.isChecked()):
-            measconfig.m_Trigger_m_Mode = 0
-            ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
-        if (self.ExternalTriggerRBtn.isChecked()):
-            measconfig.m_Trigger_m_Mode = 1
-            ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
-        
-
-        ret = AVS_PrepareMeasure(globals.dev_handle, measconfig)
-        if (globals.DeviceData.m_Detector_m_SensorType == SENS_TCD1304):
-            AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
-        if ((globals.DeviceData.m_Detector_m_SensorType == SENS_HAMS9201) or 
-            (globals.DeviceData.m_Detector_m_SensorType == SENS_SU256LSB) or
-            (globals.DeviceData.m_Detector_m_SensorType == SENS_SU512LDB)):
-            AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
-        ###########################################
-        l_NrOfScans = int(1) # 1 scan
-        
-        ###########################################
-        #### changed to DarkMeasBtn ####
-        if (self.DarkMeasBtn.isEnabled()):
-            globals.m_DateTime_start = QDateTime.currentDateTime()
-            globals.m_SummatedTimeStamps = 0.0
-            globals.m_Measurements = 0
-            globals.m_Failures = 0
-            self.TimeSinceStartEdt.setText("{0:d}".format(0))
-            self.NrScansEdt.setText("{0:d}".format(0))
-            self.NrFailuresEdt.setText("{0:d}".format(0))
-        self.DarkMeasBtn.setEnabled(False) 
-        self.timer.start(200)   
-        globals.startpixel = measconfig.m_StartPixel
-        globals.stoppixel = measconfig.m_StopPixel
-
-        ###########################################
-        avs_cb = AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
-        l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
-         ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
-         ## l_Res returns (=) 0 if the measurement callback is successfully started
-        if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
-             self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
+        if MODE == "DEMO":
+            print("DEMO MODE: on_DarkMeasBtn_clicked clicked")
         else:
-            ####!!! TEST THIS: ####
-            # ##### CLOSE SHUTTER ##### just to be sure
-            print("this gets executed") 
+            ret = AVS_UseHighResAdc(globals.dev_handle, True)
+            ret = AVS_EnableLogging(False)
+            measconfig = MeasConfigType()
+            measconfig.m_StartPixel = int(self.StartPixelEdt.text())
+            measconfig.m_StopPixel = int(self.StopPixelEdt.text())
+            measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
+            l_NanoSec =  float(self.IntDelayEdt.text())
+            measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
+            measconfig.m_NrAverages = int(self.AvgEdt.text())
+            ####
+            measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
+            measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text()) ## sets percentage (100% is recommended)
+            ####
+            # measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
+            # measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
+            ####
+            measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
+            ###########################################
+            if (self.InternalTriggerBtn.isChecked()):
+                measconfig.m_Trigger_m_Mode = 0
+                ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
+            if (self.ExternalTriggerBtn.isChecked()):
+                measconfig.m_Trigger_m_Mode = 1
+                ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
             
-            AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-            time.sleep(0.5) ## short delay between Close Shutter and Measure
-            while globals.m_Measurements <= l_NrOfScans:
-                time.sleep(0.001)
-                qApp.processEvents() ## qApp is from PyQt5
+    
+            ret = AVS_PrepareMeasure(globals.dev_handle, measconfig)
+            if (globals.DeviceData.m_Detector_m_SensorType == SENS_TCD1304):
+                AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
+            if ((globals.DeviceData.m_Detector_m_SensorType == SENS_HAMS9201) or 
+                (globals.DeviceData.m_Detector_m_SensorType == SENS_SU256LSB) or
+                (globals.DeviceData.m_Detector_m_SensorType == SENS_SU512LDB)):
+                AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
+            ###########################################
+            l_NrOfScans = int(1) # 1 scan
+            
+            ###########################################
+            #### changed to DarkMeasBtn ####
+            if (self.DarkMeasBtn.isEnabled()):
+                globals.m_DateTime_start = QDateTime.currentDateTime()
+                globals.m_SummatedTimeStamps = 0.0
+                globals.m_Measurements = 0
+                globals.m_Failures = 0
+                self.TimeSinceStartEdt.setText("{0:d}".format(0))
+                self.NrScansEdt.setText("{0:d}".format(0))
+                self.NrFailuresEdt.setText("{0:d}".format(0))
+            self.DarkMeasBtn.setEnabled(False) 
+            self.timer.start(200)   
+            globals.startpixel = measconfig.m_StartPixel
+            globals.stoppixel = measconfig.m_StopPixel
+    
+            ###########################################
+            avs_cb = AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
+            l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
+             ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
+             ## l_Res returns (=) 0 if the measurement callback is successfully started
+            if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
+                 self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
+            else:
+                ####!!! TEST THIS: ####
+                # ##### CLOSE SHUTTER ##### just to be sure
+                print("this gets executed") 
                 
-                self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
+                AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                time.sleep(0.5) ## short delay between Close Shutter and Measure
+                while globals.m_Measurements <= l_NrOfScans:
+                    time.sleep(0.001)
+                    qApp.processEvents() ## qApp is from PyQt5
+                    
+                    self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
+    
+                 
+             ##!!! add code to handle_newdata
+                 ## something like: if DarkMeasBtn is clicked?
+    
+            return
 
-             
-         ##!!! add code to handle_newdata
-             ## something like: if DarkMeasBtn is clicked?
-
-        return
+    @pyqtSlot()
+    def on_RefMeasBtn_clicked(self):
+        if MODE == "DEMO":
+            print("DEMO MODE: on_RefMeasBtn_clicked clicked")
+        else:
+            print("do stuff")
 
     @pyqtSlot()
     def on_StartMeasBtn_clicked(self):
         # print("PRINT LINE 436")
         # globals.filename = input("Name of file: ")
-        
-        globals.MeasurementType = input("Dark or Not?")
-        
-        #### Save As window added here
-        globals.filename = QFileDialog.getSaveFileName(self, 'Select filename',
-                                                       'c:\\Users\\SyrrisAsia\\Desktop\\test',
-                                                       "Comma-separated values (.csv)")
-        print(f"PRINTED globals.filename[0]: {globals.filename[0]}")
-        ################################################################
-        ret = AVS_UseHighResAdc(globals.dev_handle, True)
-        ret = AVS_EnableLogging(False)
-        measconfig = MeasConfigType() ## contains specific configuration and gets used later
-                                        ## with ret = AVS_PrepareMeasure
-        measconfig.m_StartPixel = int(self.StartPixelEdt.text())
-        measconfig.m_StopPixel = int(self.StopPixelEdt.text())
-        measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
-        l_NanoSec =  float(self.IntDelayEdt.text())
-        measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
-        measconfig.m_NrAverages = int(self.AvgEdt.text())
-        ####
-        measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked()
-        measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text())
-        ####
-        # measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
-        # measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
-        ####
-        measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
-        ###########################################
-        if (self.InternalTriggerRBtn.isChecked()):
-            measconfig.m_Trigger_m_Mode = 0
-            ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
-        if (self.ExternalTriggerRBtn.isChecked()):
-            measconfig.m_Trigger_m_Mode = 1
-            ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
-        ###########################################
-        ret = AVS_PrepareMeasure(globals.dev_handle, measconfig)
-        if (globals.DeviceData.m_Detector_m_SensorType == SENS_TCD1304):
-            AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
-        if ((globals.DeviceData.m_Detector_m_SensorType == SENS_HAMS9201) or 
-            (globals.DeviceData.m_Detector_m_SensorType == SENS_SU256LSB) or
-            (globals.DeviceData.m_Detector_m_SensorType == SENS_SU512LDB)):
-            AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
-        ###########################################
-        if globals.MeasurementType == "Dark": ## added
-            l_NrOfScans = int(1)
-        if (self.SingleRBtn.isChecked()): ## added
-            l_NrOfScans = int(1)
-            ##!!! need to test (and add shutter code)
-        if (self.FixedNrRBtn.isChecked()):
-            l_NrOfScans = int(self.NrMeasEdt.text())
-            ## default of FixedNr is 1 (see above) so it is a Single Measurement
-        if (self.ContinuousRBtn.isChecked()):
-            l_NrOfScans = -1
-        if (self.RepetitiveRBtn.isChecked()):
-             l_NrOfScans = int(self.NrMeasEdt.text())
-        ###########################################
-        if (self.StartMeasBtn.isEnabled()):
-            globals.m_DateTime_start = QDateTime.currentDateTime()
-            globals.m_SummatedTimeStamps = 0.0
-            globals.m_Measurements = 0
-            globals.m_Failures = 0
-            self.TimeSinceStartEdt.setText("{0:d}".format(0))
-            self.NrScansEdt.setText("{0:d}".format(0))
-            self.NrFailuresEdt.setText("{0:d}".format(0))
-        self.StartMeasBtn.setEnabled(False) 
-        self.timer.start(200)   
-        globals.startpixel = measconfig.m_StartPixel
-        globals.stoppixel = measconfig.m_StopPixel
-        
-        ###########################################
-        ###!!! add an if-check for the Ref having been measured
-        
-        ##### TEMPORARY CODE to measure Dark
-        if globals.MeasurementType == "Dark":
-            while globals.m_Measurements <= l_NrOfScans:
-                time.sleep(0.001)
-                qApp.processEvents() ## qApp is from PyQt5
-            # time.sleep(0.001)
-            # qApp.processEvents() ## qApp is from PyQt5
-            self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
-        ###########################################
-        
-        ###########################################
-        ##!!! what is the difference between Repetitive and Fixed Number?
-        elif (self.RepetitiveRBtn.isChecked()):
-        # if (self.RepetitiveRBtn.isChecked()):
-            ##!!! I think this function is incomplete, because it does not contain l_NrOfScans??
-            lmeas = 0
-            while (self.StartMeasBtn.isEnabled() == False):
-                avs_cb = AVS_MeasureCallbackFunc(self.measure_cb)
-                l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, 1)
-                while (globals.m_Measurements - lmeas) < 1: ##!!! what is globals.m_Measurements: the number of measurements made?
-                                                        ## yes: it gets counted at handle_newdata
-                                                        ## but when does that get called?
+        if MODE == "DEMO":
+            print("DEMO MODE: on_StartMeasBtn_clicked clicked")
+        else:
+            globals.MeasurementType = input("Dark or Not?")
+            
+            #### Save As window added here
+            globals.filename = QFileDialog.getSaveFileName(self, 'Select filename',
+                                                           'c:\\Users\\SyrrisAsia\\Desktop\\test',
+                                                           "Comma-separated values (.csv)")
+            print(f"PRINTED globals.filename[0]: {globals.filename[0]}")
+            ################################################################
+            ret = AVS_UseHighResAdc(globals.dev_handle, True)
+            ret = AVS_EnableLogging(False)
+            measconfig = MeasConfigType() ## contains specific configuration and gets used later
+                                            ## with ret = AVS_PrepareMeasure
+            measconfig.m_StartPixel = int(self.StartPixelEdt.text())
+            measconfig.m_StopPixel = int(self.StopPixelEdt.text())
+            measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
+            l_NanoSec =  float(self.IntDelayEdt.text())
+            measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
+            measconfig.m_NrAverages = int(self.AvgEdt.text())
+            ####
+            measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked()
+            measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text())
+            ####
+            # measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
+            # measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
+            ####
+            measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
+            ###########################################
+            if (self.InternalTriggerBtn.isChecked()):
+                measconfig.m_Trigger_m_Mode = 0
+                ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
+            if (self.ExternalTriggerBtn.isChecked()):
+                measconfig.m_Trigger_m_Mode = 1
+                ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
+            ###########################################
+            ret = AVS_PrepareMeasure(globals.dev_handle, measconfig)
+            if (globals.DeviceData.m_Detector_m_SensorType == SENS_TCD1304):
+                AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
+            if ((globals.DeviceData.m_Detector_m_SensorType == SENS_HAMS9201) or 
+                (globals.DeviceData.m_Detector_m_SensorType == SENS_SU256LSB) or
+                (globals.DeviceData.m_Detector_m_SensorType == SENS_SU512LDB)):
+                AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
+            ###########################################
+            if globals.MeasurementType == "Dark": ## added
+                l_NrOfScans = int(1)
+            if (self.SingleRBtn.isChecked()): ## added
+                l_NrOfScans = int(1)
+                ##!!! need to test (and add shutter code)
+            if (self.FixedNrRBtn.isChecked()):
+                l_NrOfScans = int(self.NrMeasEdt.text())
+                ## default of FixedNr is 1 (see above) so it is a Single Measurement
+            if (self.ContinuousRBtn.isChecked()):
+                l_NrOfScans = -1
+            if (self.RepetitiveRBtn.isChecked()):
+                 l_NrOfScans = int(self.NrMeasEdt.text())
+            ###########################################
+            if (self.StartMeasBtn.isEnabled()):
+                globals.m_DateTime_start = QDateTime.currentDateTime()
+                globals.m_SummatedTimeStamps = 0.0
+                globals.m_Measurements = 0
+                globals.m_Failures = 0
+                self.TimeSinceStartEdt.setText("{0:d}".format(0))
+                self.NrScansEdt.setText("{0:d}".format(0))
+                self.NrFailuresEdt.setText("{0:d}".format(0))
+            self.StartMeasBtn.setEnabled(False) 
+            self.timer.start(200)   
+            globals.startpixel = measconfig.m_StartPixel
+            globals.stoppixel = measconfig.m_StopPixel
+            
+            ###########################################
+            ###!!! add an if-check for the Ref having been measured
+            
+            ##### TEMPORARY CODE to measure Dark
+            if globals.MeasurementType == "Dark":
+                while globals.m_Measurements <= l_NrOfScans:
                     time.sleep(0.001)
-                    qApp.processEvents()
-                lmeas += 1
-                ##!!! add shutter OPEN-CLOSE code here??
-        ###########################################
-        else:    
-            avs_cb = AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
-            l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
-            ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
-                ## it is defined above and depends on which Measurement Mode option is checked
-            ## l_Res returns (=) 0 if the measurement callback is successfully started
-            if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
-                self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
-            else:
-                ###########################################
-                ####!!! TEST THIS: ####
-                if (self.SingleRBtn.isChecked()):
-                #######
-                ##!!! CHECK digital_io_demo.py for SetDigOut shenanigans
-        			## OPEN SHUTTER ###
-                    AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                    time.sleep(1.0) ## short delay between Open Shutter and Measure
-                    # time.sleep(0.001)
-                    qApp.processEvents()
-                    
-                    ##### CLOSE SHUTTER #####
-                    time.sleep(1.0) ## short delay between Measure and Close Shutter
-                    AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-                #######
-                
-                elif (self.FixedNrRBtn.isChecked()):
-                    ## either make this the Kinetic or make the Repetitive the Kinetic
-                    ##!!! TRY AVS_Measure (maybe not necessary anymore)
-
-
-                    for i in range(l_NrOfScans):
-		
-                    ### OPEN SHUTTER ###
+                    qApp.processEvents() ## qApp is from PyQt5
+                # time.sleep(0.001)
+                # qApp.processEvents() ## qApp is from PyQt5
+                self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
+            ###########################################
+        
+            ###########################################
+            ##!!! what is the difference between Repetitive and Fixed Number?
+            elif (self.RepetitiveRBtn.isChecked()):
+            # if (self.RepetitiveRBtn.isChecked()):
+                ##!!! I think this function is incomplete, because it does not contain l_NrOfScans??
+                lmeas = 0
+                while (self.StartMeasBtn.isEnabled() == False):
+                    avs_cb = AVS_MeasureCallbackFunc(self.measure_cb)
+                    l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, 1)
+                    while (globals.m_Measurements - lmeas) < 1: ##!!! what is globals.m_Measurements: the number of measurements made?
+                                                            ## yes: it gets counted at handle_newdata
+                                                            ## but when does that get called?
+                        time.sleep(0.001)
+                        qApp.processEvents()
+                    lmeas += 1
+                    ##!!! add shutter OPEN-CLOSE code here??
+            ###########################################
+            else:    
+                avs_cb = AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
+                l_Res = AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
+                ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
+                    ## it is defined above and depends on which Measurement Mode option is checked
+                ## l_Res returns (=) 0 if the measurement callback is successfully started
+                if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
+                    self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
+                else:
+                    ###########################################
+                    ####!!! TEST THIS: ####
+                    if (self.SingleRBtn.isChecked()):
+                        #######
+                        ##!!! CHECK digital_io_demo.py for SetDigOut shenanigans
+                        ## OPEN SHUTTER ###
                         AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                        time.sleep(0.5) ## short delay between Open Shutter and Measure
+                        time.sleep(1.0) ## short delay between Open Shutter and Measure
+                        # time.sleep(0.001)
+                        qApp.processEvents()
+                    
+                        ##### CLOSE SHUTTER #####
+                        time.sleep(1.0) ## short delay between Measure and Close Shutter
+                        AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                        #######
+                
+                    elif (self.FixedNrRBtn.isChecked()):
+                        ## either make this the Kinetic or make the Repetitive the Kinetic
+                        ##!!! TRY AVS_Measure (maybe not necessary anymore)
+
+
+                        for i in range(l_NrOfScans):
+		
+                        ### OPEN SHUTTER ###
+                            AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                            time.sleep(0.5) ## short delay between Open Shutter and Measure
                         
                         ######## MY WAY ########
-                        qApp.processEvents() ## qApp is from PyQt5
+                            qApp.processEvents() ## qApp is from PyQt5
                         ##############################
-                                        
-                    # ########## AVASPEC WAY ##########
-                    # while globals.m_Measurements <= l_NrOfScans:
-                    #     time.sleep(0.001)
-                    #     qApp.processEvents() ## qApp is from PyQt5
-                    ##############################
+                                
+                        # ########## AVASPEC WAY ##########
+                            # while globals.m_Measurements <= l_NrOfScans:
+                            #     time.sleep(0.001)
+                            #     qApp.processEvents() ## qApp is from PyQt5
+                        ##############################
 
-                    #######################
-                    # ##### CLOSE SHUTTER #####
-                        time.sleep(0.5) ## short delay between Open Shutter and Measure
-                        AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-                        time.sleep(0.5) ## delay between Close Shutter and Open Shutter
-
-
+                        #######################
+                        # ##### CLOSE SHUTTER #####
+                            time.sleep(0.5) ## short delay between Open Shutter and Measure
+                            AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                            time.sleep(0.5) ## delay between Close Shutter and Open Shutter
 
                 #######
-                else:        
-                    if self.ContinuousRBtn.isChecked():
-                    # if (self.ContinuousRBtn.isChecked() or
-                        # self.StoreToRamRBtn.isChecked() or
-                        # self.DstrRBtn.isChecked()):
-                        while True: 
-                            time.sleep(0.001)
-                            qApp.processEvents()
-        return
+                    else:        
+                        if self.ContinuousRBtn.isChecked():
+                            # if (self.ContinuousRBtn.isChecked() or
+                            # self.StoreToRamRBtn.isChecked() or
+                            # self.DstrRBtn.isChecked()):
+                            while True: 
+                                time.sleep(0.001)
+                                qApp.processEvents()
+            return
 
     @pyqtSlot()
     def on_StopMeasBtn_clicked(self): 
@@ -778,12 +784,12 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.IntDelayEdt.setText("{0:.0f}".format(l_NanoSec))
         self.AvgEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_NrAverages))
         self.SatDetEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_SaturationDetection))
-        self.InternalTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 0)
-        self.ExternalTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 1)
+        self.InternalTriggerBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 0)
+        self.ExternalTriggerBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 1)
         # self.SoftwareTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 0)
         # self.HardwareTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 1)
         # self.SingleScanTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 2)
-        # self.ExternalTriggerRbtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Source == 0)
+        # self.ExternalTriggerBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Source == 0)
         # self.SynchTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Source == 1)
         # self.EdgeTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_SourceType == 0)
         # self.LevelTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_SourceType == 1)
@@ -817,9 +823,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         l_DeviceData.m_StandAlone_m_Meas_m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
         l_DeviceData.m_StandAlone_m_Meas_m_NrAverages = int(self.AvgEdt.text())
         ###########################################
-        if (self.InternalTriggerRBtn.isChecked()):
+        if (self.InternalTriggerBtn.isChecked()):
             l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode = 0
-        if (self.ExternalTriggerRBtn.isChecked()):
+        if (self.ExternalTriggerBtn.isChecked()):
             l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode = 1
         # if (self.SoftwareTriggerRBtn.isChecked()):
         #     l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode = 0
