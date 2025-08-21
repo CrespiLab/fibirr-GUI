@@ -420,6 +420,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             ###########################################
             #### changed to DarkMeasBtn ####
             if (self.DarkMeasBtn.isEnabled()):
+                print ("on_DarkMeasBtn_clicked === DarkMeasBtn enabled")
                 globals.m_DateTime_start = QDateTime.currentDateTime()
                 globals.m_SummatedTimeStamps = 0.0
                 globals.m_Measurements = 0
@@ -427,7 +428,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 self.TimeSinceStartEdt.setText("{0:d}".format(0))
                 self.NrScansEdt.setText("{0:d}".format(0))
                 self.NrFailuresEdt.setText("{0:d}".format(0))
-            self.DarkMeasBtn.setEnabled(False) 
+            # self.DarkMeasBtn.setEnabled(False) 
             self.timer.start(200)   
             
             
@@ -444,20 +445,21 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             else:
                 ####!!! TEST THIS: ####
                 # ##### CLOSE SHUTTER ##### just to be sure
-                print("this gets executed") 
+                print(f"on_DarkMeasBtn_clicked === globals.m_Measurements: {globals.m_Measurements}") 
                 
                 ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
                 time.sleep(0.5) ## short delay between Close Shutter and Measure
-                while globals.m_Measurements <= l_NrOfScans:
+                while globals.m_Measurements < l_NrOfScans:
+                    print(f"on_DarkMeasBtn_clicked === while-loop === globals.m_Measurements: {globals.m_Measurements}") 
                     time.sleep(0.001)
                     qApp.processEvents() ## qApp is from PyQt5
                     
-                    self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
-    
+                    self.statusBar.showMessage("Dark Spectrum recorded")
+                print(f"on_DarkMeasBtn_clicked === after while-loop === globals.m_Measurements: {globals.m_Measurements}") 
                  
              ##!!! add code to handle_newdata
                  ## something like: if DarkMeasBtn is clicked?
-    
+                 ## self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
             return
 
     @pyqtSlot()
@@ -803,7 +805,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     #             self.DstrProgBar.setValue(l_DstrStatus.m_UsedScans)      
     #     return    
 
-##!!! don't need EEPROM I think
     @pyqtSlot()
     def on_ReadEepromBtn_clicked(self):
         '''
