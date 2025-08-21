@@ -18,9 +18,11 @@ mSelectedDevRow = 0
 
 #################################
 ########## ADDED BY ME ##########
-filename = "TEST"
+filename = ""
 MeasurementType = ""
 DarkSpectrum = [0.0] * 4096
+RefSpectrum  = [0.0] * 4096
+RefSpectrum_DarkCorr  = [0.0] * 4096
 ScopeSpectrum = [0.0] * 4096
 ScopeSpectrum_DarkCorr = [0.0] * 4096
 #################################

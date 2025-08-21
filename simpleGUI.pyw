@@ -391,17 +391,15 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
         self.print_settings()
 
-##!!! ADD def for DarkMeas and RefMeas buttons
 ##!!! ADD a check  for Intensity and Absorbance modes
     ## self.AbsorbanceMode.isChecked()
     ###!!! add an if-check for the Ref having been measured
 
-##!!! BUTTON DOESN'T WORK FOR SOME REASON.......
-##!!! adjust according to the updated on_StartMeasBtn_clicked()
     @pyqtSlot()
     def on_DarkMeasBtn_clicked(self):
         print("on_DarkMeasBtn_clicked")
         self.print_settings()
+        globals.MeasurementType = "Dark"
         if MODE == "DEMO":
             print("DEMO MODE: on_DarkMeasBtn_clicked clicked")
         elif MODE == "EXP":
@@ -462,21 +460,21 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                  ## self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
             return
 
+##!!! ADD RefMeas button; also in handle_newdata
     @pyqtSlot()
     def on_RefMeasBtn_clicked(self):
         if MODE == "DEMO":
             print("DEMO MODE: on_RefMeasBtn_clicked clicked")
         elif MODE == "EXP":
-            print("do stuff")
+            print("measure REF")
 
     @pyqtSlot()
     def on_StartMeasBtn_clicked(self):
-        # print("PRINT LINE 436")
-        # globals.filename = input("Name of file: ")
+        globals.MeasurementType = "Measurement"
         if MODE == "DEMO":
             print("DEMO MODE: on_StartMeasBtn_clicked clicked")
         elif MODE == "EXP":
-            globals.MeasurementType = input("Dark or Not?")
+
             
             #### Save As window added here
             globals.filename = QFileDialog.getSaveFileName(self, 'Select filename',
@@ -522,8 +520,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB)):
                 ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
             ###########################################
-            if globals.MeasurementType == "Dark": ## added
-                l_NrOfScans = int(1)
             if (self.SingleRBtn.isChecked()): ## added
                 l_NrOfScans = int(1)
                 ##!!! need to test (and add shutter code)
@@ -551,20 +547,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             
             ###########################################
             ###!!! add an if-check for the Ref having been measured
-            
-            ##### TEMPORARY CODE to measure Dark
-            if globals.MeasurementType == "Dark":
-                while globals.m_Measurements <= l_NrOfScans:
-                    time.sleep(0.001)
-                    qApp.processEvents() ## qApp is from PyQt5
-                # time.sleep(0.001)
-                # qApp.processEvents() ## qApp is from PyQt5
-                self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
-            ###########################################
-        
-            ###########################################
             ##!!! what is the difference between Repetitive and Fixed Number?
-            elif (self.RepetitiveRBtn.isChecked()):
+            if (self.RepetitiveRBtn.isChecked()):
             # if (self.RepetitiveRBtn.isChecked()):
                 ##!!! I think this function is incomplete, because it does not contain l_NrOfScans??
                 lmeas = 0
@@ -671,7 +655,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     ## in what format is this data: 4096 element array of doubles
                     ##################
 
-                    filename = globals.filename[0]
+                    filename = globals.filename
+                    print(f"handle_newdata === filename: {filename}")
                     ##################
                     if globals.MeasurementType == "Dark":
                         globals.DarkSpectrum = globals.spectraldata
@@ -682,7 +667,16 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         data_Dark_transposed = np.transpose(data_Dark_vstack)
                         xydata_Dark = pd.DataFrame(data_Dark_transposed,columns=["Wavelength (nm)","Pixel values"])
                         xydata_Dark.to_csv(FileObject_Dark,index=False)
-                    elif globals.MeasurementType == "Not":
+                    elif globals.MeasurementType == "Ref":
+                        globals.RefSpectrum = globals.spectraldata
+                        ####!!! ADD CODE FOR REF
+                        # FileObject_Dark = filename+"_Dark_"+".csv"
+                        # data_Dark_vstack = np.vstack((globals.wavelength[:globals.pixels],
+                        #                              globals.spectraldata[:globals.pixels]))
+                        # data_Dark_transposed = np.transpose(data_Dark_vstack)
+                        # xydata_Dark = pd.DataFrame(data_Dark_transposed,columns=["Wavelength (nm)","Pixel values"])
+                        # xydata_Dark.to_csv(FileObject_Dark,index=False)
+                    elif globals.MeasurementType == "Measurement":
                         globals.ScopeSpectrum = globals.spectraldata
                         ####
                         ## save only the number of pixels corresponding to this spectrometer
@@ -973,6 +967,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.SatDetEdt.setText(f"{self.measconfig.m_SaturationDetection:0d}")
         self.measconfig.m_Trigger_m_Mode = 0
         self.InternalTriggerBtn.setChecked(True)
+        
+        globals.filename = "TEST"
+        print(f"DefaultSettings === globals.filename: {globals.filename}")
         
     def DisconnectGui(self):
         self.DetectorEdt.clear()
