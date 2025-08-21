@@ -139,9 +139,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.ConnectUSBRBtn.setChecked(True)
         self.ConnectEthernetRBtn.setChecked(False)
         ###########################################
-        self.SingleRBtn.setChecked(False)
-        self.FixedNrRBtn.setChecked(True)
-        self.NrMeasEdt.setText("1") ## default 1 measurement
+        self.SingleRBtn.setChecked(True)
+        self.FixedNrRBtn.setChecked(False)
+        # self.NrMeasEdt.setText("1") ## default 1 measurement
         self.ContinuousRBtn.setChecked(False)
         self.RepetitiveRBtn.setChecked(False)
         ###########################################
@@ -364,21 +364,15 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     @pyqtSlot()
     def on_SettingsBtn_clicked(self):
         print("on_SettingsBtn_clicked")
-        # self.measconfig = ava.MeasConfigType()
         self.measconfig.m_StartPixel = int(self.StartPixelEdt.text())
         self.measconfig.m_StopPixel = int(self.StopPixelEdt.text())
         self.measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
-        
         l_NanoSec =  float(self.IntDelayEdt.text())
         self.measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
-        
         self.measconfig.m_NrAverages = int(self.AvgEdt.text())
         ####
         self.measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
         self.measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text()) ## sets percentage (100% is recommended)
-        ####
-        # self.measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
-        # self.measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
         ####
         self.measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
         ###########################################
@@ -410,9 +404,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
             ###########################################
             l_NrOfScans = int(1) # 1 scan
-            
             ###########################################
-            #### changed to DarkMeasBtn ####
             if (self.DarkMeasBtn.isEnabled()):
                 print ("on_DarkMeasBtn_clicked === DarkMeasBtn enabled")
                 globals.m_DateTime_start = QDateTime.currentDateTime()
@@ -424,11 +416,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 self.NrFailuresEdt.setText("{0:d}".format(0))
             # self.DarkMeasBtn.setEnabled(False) 
             self.timer.start(200)   
-            
-            
-            # globals.startpixel = self.measconfig.m_StartPixel
-            # globals.stoppixel = self.measconfig.m_StopPixel
-    
             ###########################################
             avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
             l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
@@ -439,18 +426,11 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             else:
                 ####!!! TEST THIS: ####
                 # ##### CLOSE SHUTTER ##### just to be sure
-                print(f"on_DarkMeasBtn_clicked === globals.m_Measurements: {globals.m_Measurements}") 
-                
                 ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
                 time.sleep(0.5) ## short delay between Close Shutter and Measure
-                while globals.m_Measurements < l_NrOfScans:
-                    print(f"on_DarkMeasBtn_clicked === while-loop === globals.m_Measurements: {globals.m_Measurements}") 
-                    time.sleep(0.001)
-                    qApp.processEvents() ## qApp is from PyQt5
-                    
-                    self.statusBar.showMessage("Dark Spectrum recorded")
-                print(f"on_DarkMeasBtn_clicked === after while-loop === globals.m_Measurements: {globals.m_Measurements}") 
-                 
+                qApp.processEvents() ## 
+                self.statusBar.showMessage("Dark Spectrum recorded")
+                print(f"on_DarkMeasBtn_clicked === globals.m_Measurements: {globals.m_Measurements}") 
                  
             return
 
@@ -500,16 +480,16 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 ## OPEN SHUTTER ###
                 ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
                 time.sleep(0.5) ## short delay between Open Shutter and Measure
-                while globals.m_Measurements < l_NrOfScans:
-                    print(f"on_RefMeasBtn_clicked === while-loop === globals.m_Measurements: {globals.m_Measurements}") 
-                    time.sleep(0.001)
-                    qApp.processEvents()
-                    self.statusBar.showMessage("Reference Spectrum recorded")
-                    print(f"on_RefMeasBtn_clicked === after while-loop === globals.m_Measurements: {globals.m_Measurements}") 
-                ##### CLOSE SHUTTER #####
+                qApp.processEvents()
+                self.statusBar.showMessage("Reference Spectrum recorded")
+                print(f"on_RefMeasBtn_clicked === globals.m_Measurements: {globals.m_Measurements}") 
+                ## CLOSE SHUTTER ###
                 time.sleep(0.1) ## short delay between Measure and Close Shutter
                 ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
                 #######
+                self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
+                ##!!! NEED TO ADD CHECKS
+
             return
 
 ###!!! in case of Absorbance Mode: add an if-check for the Ref having been measured
@@ -520,43 +500,14 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         if MODE == "DEMO":
             print("DEMO MODE: on_StartMeasBtn_clicked clicked")
         elif MODE == "EXP":
-
-            
-            #### Save As window added here
-            globals.filename = QFileDialog.getSaveFileName(self, 'Select filename',
-                                                           'c:\\Users\\SyrrisAsia\\Desktop\\test',
-                                                           "Comma-separated values (.csv)")
-            print(f"PRINTED globals.filename[0]: {globals.filename[0]}")
+            ####!!! ADD Save As window here
+            # globals.filename = QFileDialog.getSaveFileName(self, 'Select filename',
+            #                                                'c:\\Users\\SyrrisAsia\\Desktop\\test',
+            #                                                "Comma-separated values (.csv)")
+            # print(f"PRINTED globals.filename[0]: {globals.filename[0]}")
             ################################################################
             ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
             ret = ava.AVS_EnableLogging(False)
-            
-            
-            # measconfig = ava.MeasConfigType() ## contains specific configuration and gets used later
-            #                                 ## with ret = AVS_PrepareMeasure
-            # measconfig.m_StartPixel = int(self.StartPixelEdt.text())
-            # measconfig.m_StopPixel = int(self.StopPixelEdt.text())
-            # measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
-            # l_NanoSec =  float(self.IntDelayEdt.text())
-            # measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
-            # measconfig.m_NrAverages = int(self.AvgEdt.text())
-            # ####
-            # measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked()
-            # measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text())
-            ####
-            # measconfig.m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
-            # measconfig.m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
-            ####
-            # measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
-            ###########################################
-            # if (self.InternalTriggerBtn.isChecked()):
-            #     measconfig.m_Trigger_m_Mode = 0
-            #     ##!!! DEFINE m_Trigger_m_Mode = 0 : internal shutter of light source (change name?)
-            # if (self.ExternalTriggerBtn.isChecked()):
-            #     measconfig.m_Trigger_m_Mode = 1
-            #     ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
-            
-            
             ###########################################
             ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
             if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
@@ -586,11 +537,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 self.NrScansEdt.setText("{0:d}".format(0))
                 self.NrFailuresEdt.setText("{0:d}".format(0))
             self.StartMeasBtn.setEnabled(False) 
+            self.StopMeasBtn.setEnabled(True)
             self.timer.start(200)   
-            
-            # globals.startpixel = measconfig.m_StartPixel
-            # globals.stoppixel = measconfig.m_StopPixel
-            
             ###########################################
             ###!!! add an if-check for the Ref having been measured
             ##!!! what is the difference between Repetitive and Fixed Number?
@@ -625,12 +573,11 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         ##!!! CHECK digital_io_demo.py for SetDigOut shenanigans
                         ## OPEN SHUTTER ###
                         ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                        time.sleep(1.0) ## short delay between Open Shutter and Measure
-                        # time.sleep(0.001)
+                        time.sleep(0.5) ## short delay between Open Shutter and Measure
                         qApp.processEvents()
                     
                         ##### CLOSE SHUTTER #####
-                        time.sleep(1.0) ## short delay between Measure and Close Shutter
+                        time.sleep(0.5) ## short delay between Measure and Close Shutter
                         ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
                         #######
                 
@@ -664,12 +611,14 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 #######
                     else:        
                         if self.ContinuousRBtn.isChecked():
-                            # if (self.ContinuousRBtn.isChecked() or
-                            # self.StoreToRamRBtn.isChecked() or
-                            # self.DstrRBtn.isChecked()):
                             while True: 
                                 time.sleep(0.001)
                                 qApp.processEvents()
+                                ##!!! HERE does this somehow re-activate the StartMeasBtn?
+                                ## and does it prevent the GUI from exiting correctly?
+
+            self.StartMeasBtn.setEnabled(True) 
+            self.StopMeasBtn.setEnabled(False)
             return
 
     @pyqtSlot()
@@ -682,8 +631,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     @pyqtSlot()
     def update_plot(self):
         if (self.DisableGraphChk.isChecked() == False):
-            self.plot.update_plot()
-            ## plot.py/update_plot() uses the new data: globals.spectraldata
+            self.plot.update_plot() ## plot.py/update_plot() uses the new data: globals.spectraldata
         if (globals.m_Measurements == int(self.NrMeasEdt.text())):
             self.StartMeasBtn.setEnabled(True)    
         return         
@@ -696,13 +644,11 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     self.statusBar.showMessage("Meas.Status: success")
                     timestamp = 0
                     globals.m_Measurements += 1 ## counter for number of measurements
-                    timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
-                    ## globals.spectraldata is the intensity/pixel data that I need
-                    ## in what format is this data: 4096 element array of doubles
+                    timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is 4096 element array of doubles
                     globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
                     ##################
                     filename = globals.filename
-                    print(f"handle_newdata === filename: {filename}")
+                    # print(f"handle_newdata === filename: {filename}")
                     ##################
                     if globals.MeasurementType == "Dark":
                         globals.DarkSpectrum_doublearray = globals.spectraldata
@@ -743,7 +689,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     elif globals.MeasurementType == "Measurement":
                         globals.ScopeSpectrum_doublearray = globals.spectraldata
                         globals.ScopeSpectrum = globals.ScopeSpectrum_doublearray[:globals.pixels]
-                        ####!!! HOW TO save only the number of pixels corresponding to this spectrometer?
                         FileObject_Int = filename+"_Int_"+str(globals.m_Measurements)+".csv"
                         data_Int_vstack = np.vstack((globals.wavelength,
                                                      globals.ScopeSpectrum))
@@ -762,7 +707,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     else:
                         self.statusBar.showMessage("Incorrect MeasurementType. {0:d})".format(lerror))
                     ##################
-
                     ######################################################
                     globals.saturated = ava.AVS_GetSaturatedPixels(globals.dev_handle)
                     SpectrumIsSatured = False
@@ -881,29 +825,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.SatDetEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_SaturationDetection))
         self.InternalTriggerBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 0)
         self.ExternalTriggerBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 1)
-        # self.SoftwareTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 0)
-        # self.HardwareTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 1)
-        # self.SingleScanTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode == 2)
-        # self.ExternalTriggerBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Source == 0)
-        # self.SynchTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Source == 1)
-        # self.EdgeTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_SourceType == 0)
-        # self.LevelTriggerRBtn.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_SourceType == 1)
         ####
         self.DarkCorrChk.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_CorDynDark_m_Enable == 1)
         self.DarkCorrPercEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_CorDynDark_m_ForgetPercentage))
-        ####
-        # self.SmoothModelEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_Smoothing_m_SmoothModel))
-        # self.SmoothNrPixelsEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_Smoothing_m_SmoothPix))
-        # self.FlashesPerScanEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_Control_m_StrobeControl))
-        # l_FPGAClkCycles = l_DeviceData.m_StandAlone_m_Meas_m_Control_m_LaserDelay
-        # l_NanoSec = 125.0*(l_FPGAClkCycles)/6.0
-        # self.LaserDelayEdt.setText("{0:.0f}".format(l_NanoSec))
-        # l_FPGAClkCycles = l_DeviceData.m_StandAlone_m_Meas_m_Control_m_LaserWidth
-        # l_NanoSec = 125.0*(l_FPGAClkCycles)/6.0
-        # self.LaserWidthEdt.setText("{0:.0f}".format(l_NanoSec))
-        # self.LaserWavEdt.setText("{0:.3f}".format(l_DeviceData.m_StandAlone_m_Meas_m_Control_m_LaserWaveLength))
-        # self.NrStoreToRamEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_Control_m_StoreToRam))
-        ####
         self.NrMeasEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Nmsr))                
         return
 
@@ -1005,11 +929,14 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         return
 
     def DefaultSettings(self):
-        self.measconfig = ava.MeasConfigType()
+        '''
+        ava.MeasConfigType() contains specific configuration and gets used with ret = AVS_PrepareMeasure
+        '''
+        self.measconfig = ava.MeasConfigType() 
         self.measconfig.m_StartPixel = globals.startpixel
         self.measconfig.m_StopPixel = globals.stoppixel
         
-        l_NanoSec =  float(self.IntDelayEdt.text())
+        l_NanoSec = float(self.IntDelayEdt.text())
         self.measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
         print(f"self.measconfig.m_IntegrationDelay: {self.measconfig.m_IntegrationDelay}")
         
@@ -1031,7 +958,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.measconfig.m_Trigger_m_Mode = 0
         self.InternalTriggerBtn.setChecked(True)
         
-        globals.filename = "TEST"
+        self.NrMeasEdt.setText("1") ## default 1 measurement
+        
+        globals.filename = "tests/20250821/TEST"
         print(f"DefaultSettings === globals.filename: {globals.filename}")
         
     def DisconnectGui(self):

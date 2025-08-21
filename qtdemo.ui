@@ -448,19 +448,19 @@
          <rect>
           <x>20</x>
           <y>40</y>
-          <width>111</width>
+          <width>161</width>
           <height>17</height>
          </rect>
         </property>
         <property name="text">
-         <string>Fixed Number</string>
+         <string>Kinetic (shutter-controlled)</string>
         </property>
        </widget>
        <widget class="QRadioButton" name="ContinuousRBtn">
         <property name="geometry">
          <rect>
           <x>20</x>
-          <y>60</y>
+          <y>80</y>
           <width>151</width>
           <height>17</height>
          </rect>
@@ -473,7 +473,7 @@
         <property name="geometry">
          <rect>
           <x>20</x>
-          <y>80</y>
+          <y>100</y>
           <width>111</width>
           <height>17</height>
          </rect>
@@ -485,8 +485,8 @@
        <widget class="QLineEdit" name="NrMeasEdt">
         <property name="geometry">
          <rect>
-          <x>130</x>
-          <y>40</y>
+          <x>40</x>
+          <y>60</y>
           <width>71</width>
           <height>20</height>
          </rect>
@@ -502,7 +502,7 @@
          </rect>
         </property>
         <property name="text">
-         <string>Single (TBA)</string>
+         <string>Single</string>
         </property>
        </widget>
       </widget>
@@ -1076,7 +1076,7 @@
   <customwidget>
    <class>Plot</class>
    <extends>QWidget</extends>
-   <header>plot.py</header>
+   <header>plot</header>
    <container>1</container>
   </customwidget>
  </customwidgets>
