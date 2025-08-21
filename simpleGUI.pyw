@@ -81,7 +81,7 @@ import eeprom_demo
 import numpy as np
 import pandas as pd
 
-####!!! DEMO MODE ###
+#### DEMO MODE ###
 # MODE = "DEMO"
 MODE = "EXP"
 ##############################
@@ -391,10 +391,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
         self.print_settings()
 
-##!!! ADD a check  for Intensity and Absorbance modes
-    ## self.AbsorbanceMode.isChecked()
-    ###!!! add an if-check for the Ref having been measured
-
     @pyqtSlot()
     def on_DarkMeasBtn_clicked(self):
         print("on_DarkMeasBtn_clicked")
@@ -455,19 +451,69 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     self.statusBar.showMessage("Dark Spectrum recorded")
                 print(f"on_DarkMeasBtn_clicked === after while-loop === globals.m_Measurements: {globals.m_Measurements}") 
                  
-             ##!!! add code to handle_newdata
-                 ## something like: if DarkMeasBtn is clicked?
-                 ## self.statusBar.showMessage("Dark Spectrum was saved (not actually yet)") ## Message box added
+                 
             return
 
-##!!! ADD RefMeas button; also in handle_newdata
+##!!! ADD provision that Dark Measurement needs to have been carried out
     @pyqtSlot()
     def on_RefMeasBtn_clicked(self):
+        print("on_RefMeasBtn_clicked")
+        self.print_settings()
+        globals.MeasurementType = "Ref"
         if MODE == "DEMO":
             print("DEMO MODE: on_RefMeasBtn_clicked clicked")
         elif MODE == "EXP":
-            print("measure REF")
+            ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
+            ret = ava.AVS_EnableLogging(False)
+            ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
+            if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
+                ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
+            if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
+                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB) or
+                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB)):
+                ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
+            ###########################################
+            l_NrOfScans = int(1) # 1 scan
+            
+            ###########################################
+            #### changed to DarkMeasBtn ####
+            if (self.RefMeasBtn.isEnabled()):
+                print ("on_RefMeasBtn_clicked === RefMeasBtn enabled")
+                globals.m_DateTime_start = QDateTime.currentDateTime()
+                globals.m_SummatedTimeStamps = 0.0
+                globals.m_Measurements = 0
+                globals.m_Failures = 0
+                self.TimeSinceStartEdt.setText("{0:d}".format(0))
+                self.NrScansEdt.setText("{0:d}".format(0))
+                self.NrFailuresEdt.setText("{0:d}".format(0))
+            # self.RefMeasBtn.setEnabled(False) 
+            self.timer.start(200)   
+            ###########################################
+            avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
+            l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
+             ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
+             ## l_Res returns (=) 0 if the measurement callback is successfully started
+            if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
+                 self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
+            else:
+                ####!!! TEST THIS: ####
+                ## OPEN SHUTTER ###
+                ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                time.sleep(0.5) ## short delay between Open Shutter and Measure
+                while globals.m_Measurements < l_NrOfScans:
+                    print(f"on_RefMeasBtn_clicked === while-loop === globals.m_Measurements: {globals.m_Measurements}") 
+                    time.sleep(0.001)
+                    qApp.processEvents()
+                    self.statusBar.showMessage("Reference Spectrum recorded")
+                    print(f"on_RefMeasBtn_clicked === after while-loop === globals.m_Measurements: {globals.m_Measurements}") 
+                ##### CLOSE SHUTTER #####
+                time.sleep(0.1) ## short delay between Measure and Close Shutter
+                ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                #######
+            return
 
+###!!! in case of Absorbance Mode: add an if-check for the Ref having been measured
+    ## self.AbsorbanceMode.isChecked()
     @pyqtSlot()
     def on_StartMeasBtn_clicked(self):
         globals.MeasurementType = "Measurement"
@@ -653,46 +699,63 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
                     ## globals.spectraldata is the intensity/pixel data that I need
                     ## in what format is this data: 4096 element array of doubles
+                    globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
                     ##################
-
                     filename = globals.filename
                     print(f"handle_newdata === filename: {filename}")
                     ##################
                     if globals.MeasurementType == "Dark":
-                        globals.DarkSpectrum = globals.spectraldata
+                        globals.DarkSpectrum_doublearray = globals.spectraldata
+                        globals.DarkSpectrum = globals.DarkSpectrum_doublearray[:globals.pixels]
                         ####
                         FileObject_Dark = filename+"_Dark_"+".csv"
-                        data_Dark_vstack = np.vstack((globals.wavelength[:globals.pixels],
-                                                     globals.spectraldata[:globals.pixels]))
+                        data_Dark_vstack = np.vstack((globals.wavelength,
+                                                     globals.DarkSpectrum))
                         data_Dark_transposed = np.transpose(data_Dark_vstack)
                         xydata_Dark = pd.DataFrame(data_Dark_transposed,columns=["Wavelength (nm)","Pixel values"])
                         xydata_Dark.to_csv(FileObject_Dark,index=False)
+                        print(f"Dark spectrum auto-saved as {FileObject_Dark}")
+                        self.statusBar.showMessage("Dark Spectrum auto-saved") ## Message box added
                     elif globals.MeasurementType == "Ref":
-                        globals.RefSpectrum = globals.spectraldata
-                        ####!!! ADD CODE FOR REF
-                        # FileObject_Dark = filename+"_Dark_"+".csv"
-                        # data_Dark_vstack = np.vstack((globals.wavelength[:globals.pixels],
-                        #                              globals.spectraldata[:globals.pixels]))
-                        # data_Dark_transposed = np.transpose(data_Dark_vstack)
-                        # xydata_Dark = pd.DataFrame(data_Dark_transposed,columns=["Wavelength (nm)","Pixel values"])
-                        # xydata_Dark.to_csv(FileObject_Dark,index=False)
+                        globals.RefSpectrum_doublearray = globals.spectraldata
+                        print(f"globals.RefSpectrum_doublearray type: {type(globals.RefSpectrum_doublearray)}")
+                        globals.RefSpectrum = globals.RefSpectrum_doublearray[:globals.pixels]
+                        print(f"globals.RefSpectrum type: {type(globals.RefSpectrum)}")
+                        
+                        FileObject_Ref = filename+"_Ref_"+".csv"
+                        data_Ref_vstack = np.vstack((globals.wavelength,
+                                                     globals.RefSpectrum))
+                        
+                        data_Ref_transposed = np.transpose(data_Ref_vstack)
+                        xydata_Ref = pd.DataFrame(data_Ref_transposed,columns=["Wavelength (nm)","Pixel values"])
+                        xydata_Ref.to_csv(FileObject_Ref,index=False)
+                        print(f"Ref spectrum auto-saved as {FileObject_Ref}")
+                        #### Dark-Corrected ####
+                        globals.RefSpectrum_DarkCorr = [globals.RefSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
+                        print(f"globals.RefSpectrum_DarkCorr type: {type(globals.RefSpectrum_DarkCorr)}")
+                        FileObject_RefDarkCorr = filename+"_RefDarkCorr_"+".csv"
+                        data_RefDarkCorr_vstack = np.vstack((globals.wavelength,
+                                                     globals.RefSpectrum_DarkCorr))
+                        data_RefDarkCorr_transposed = np.transpose(data_RefDarkCorr_vstack)
+                        xydata_RefDarkCorr = pd.DataFrame(data_RefDarkCorr_transposed,columns=["Wavelength (nm)","Pixel values (DarkCorr)"])
+                        xydata_RefDarkCorr.to_csv(FileObject_RefDarkCorr,index=False)
+                        print(f"Dark-Corrected Ref spectrum auto-saved as {FileObject_RefDarkCorr}")
                     elif globals.MeasurementType == "Measurement":
-                        globals.ScopeSpectrum = globals.spectraldata
-                        ####
-                        ## save only the number of pixels corresponding to this spectrometer
+                        globals.ScopeSpectrum_doublearray = globals.spectraldata
+                        globals.ScopeSpectrum = globals.ScopeSpectrum_doublearray[:globals.pixels]
+                        ####!!! HOW TO save only the number of pixels corresponding to this spectrometer?
                         FileObject_Int = filename+"_Int_"+str(globals.m_Measurements)+".csv"
-                        data_Int_vstack = np.vstack((globals.wavelength[:globals.pixels],
-                                                     globals.spectraldata[:globals.pixels]))
+                        data_Int_vstack = np.vstack((globals.wavelength,
+                                                     globals.ScopeSpectrum))
                         data_Int_transposed = np.transpose(data_Int_vstack)
                         xydata_Int = pd.DataFrame(data_Int_transposed,columns=["Wavelength (nm)","Pixel values"])
                         xydata_Int.to_csv(FileObject_Int,index=False)
-                        ####
-                        ##!!! CHECK WHAT TYPE OF OBJECT globals.DarkSpectrum is
-                        globals.ScopeSpectrum_DarkCorr = globals.ScopeSpectrum - globals.DarkSpectrum
-                        ####
+                        #### Dark Correction
+                        globals.ScopeSpectrum_DarkCorr = [globals.ScopeSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
+                        print(f"globals.ScopeSpectrum_DarkCorr type: {type(globals.ScopeSpectrum_DarkCorr)}")
                         FileObject_IntDarkCorr = filename+"_IntDarkCorr_"+str(globals.m_Measurements)+".csv"
-                        data_IntDarkCorr_vstack = np.vstack((globals.wavelength[:globals.pixels],
-                                                     globals.ScopeSpectrum_DarkCorr[:globals.pixels]))
+                        data_IntDarkCorr_vstack = np.vstack((globals.wavelength,
+                                                     globals.ScopeSpectrum_DarkCorr))
                         data_IntDarkCorr_transposed = np.transpose(data_IntDarkCorr_vstack)
                         xydata_IntDarkCorr = pd.DataFrame(data_IntDarkCorr_transposed,columns=["Wavelength (nm)","Pixel values (DarkCorr)"])
                         xydata_IntDarkCorr.to_csv(FileObject_IntDarkCorr,index=False)
@@ -744,7 +807,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                            ## enable Start Measurement button when the user-defined #meas (NrMeasEdt) is equal to
                                ## the number of measured spectra (globals.m_Measurements)
                 else: # StoreToRam measurements
-                ##!!! REMOVE CODE?
+                ## REMOVE CODE?
                     l_AvgScantimeRAM = 0.0
                     self.statusBar.showMessage("Meas.Status: Reading RAM")
                     j = 0
@@ -937,7 +1000,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.NrPixelsEdt.setText("{0:d}".format(globals.pixels))
         globals.startpixel = globals.DeviceData.m_StandAlone_m_Meas_m_StartPixel
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
-        globals.wavelength = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
+        globals.wavelength_doublearray = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
 
         return
 

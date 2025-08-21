@@ -4,7 +4,8 @@ dev_handle = INVALID_AVS_HANDLE_VALUE
 pixels = 2048
 startpixel = 0
 stoppixel = 2047
-wavelength = [0.0] * 4096
+wavelength_doublearray = [0.0] * 4096
+wavelength = [0.0]
 spectraldata = [0.0] * 4096
 saturated = [0] * 4096
 m_GraphicsDisabled = False
@@ -20,9 +21,9 @@ mSelectedDevRow = 0
 ########## ADDED BY ME ##########
 filename = ""
 MeasurementType = ""
-DarkSpectrum = [0.0] * 4096
-RefSpectrum  = [0.0] * 4096
-RefSpectrum_DarkCorr  = [0.0] * 4096
-ScopeSpectrum = [0.0] * 4096
-ScopeSpectrum_DarkCorr = [0.0] * 4096
+DarkSpectrum = [0.0]
+RefSpectrum  = [0.0]
+RefSpectrum_DarkCorr  = [0.0]
+ScopeSpectrum = [0.0]
+ScopeSpectrum_DarkCorr = [0.0]
 #################################
