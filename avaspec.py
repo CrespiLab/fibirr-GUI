@@ -474,10 +474,8 @@ def AVS_GetScopeData(handle):
     return timestamp, spectrum
 
 ######################################################################
-##!!! ADDED
+##!!! ADDED (CORRECTLY?)
 def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum, a_pDestSpectrum):
-    ##!!! need to use the correct parameters upon calling the function in the .pyw script
-
     ##########
     """
     (
@@ -496,13 +494,13 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum, a_pDestSpectru
         factor than 1.0 will linearly apply a larger correction. You should generally also use a factor of 1.0 
         in your correction function. 
     :param a_pSrcSpectrum: Array of doubles (scope minus dark), with array size equal to maximum 
-    number of detector pixels (4096)
+        number of detector pixels (4096)
     :parm a_pDestSpectrum: Array of doubles stray light suppressed, with array size equal to 
-    maximum number of detector pixels (4096)
+         maximum number of detector pixels (4096). This is the SSL-corrected spectrum that gets saved upon
+         executing this function.
 
     :return: SUCCESS = 0 or FAILURE <> 0
     """    
-    ##!!! which parameters need to go in func()??
         ## I think the first element (c.types.c_int) is the return value of the function itself
             ## (the error indication), which is an integer (0 or 1)
             ## ctypes.c_int: Represents the C signed int datatype
@@ -512,6 +510,8 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum, a_pDestSpectru
         ## 3rd: should be a float ctypes.c_float (not a pointer) for "a_MultiFactor"
         ## 4th: double*, so ctypes.POINTER(ctypes.c_double * 4096) for "a_pSrcSpectrum"
         ## 5th: double*, so ctypes.POINTER(ctypes.c_double * 4096) for "a_pDestSpectrum"
+    
+    ##!!! which parameters need to go in func()??
     prototype = func(ctypes.c_int, ctypes.c_int, ctypes.c_float, 
                      ctypes.POINTER(ctypes.c_double * 4096), ctypes.POINTER(ctypes.c_double * 4096))
     

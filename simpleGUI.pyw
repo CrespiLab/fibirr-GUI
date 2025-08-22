@@ -638,6 +638,15 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
     @pyqtSlot(int, int)
     def handle_newdata(self, ldev_handle, lerror):
+        '''
+        
+        Order of actions for spectra with Dark and SLS correction
+        1) record and save Dark
+        2) record Scope spectrum
+        3) substract Dark from Scope (Scope_DarkCorrected = Scope - Dark)
+        4) obtain the SLS-corrected spectrum (Scope_DarkSLSCorrected) using AVS_SuppressStrayLight 
+           from the dark-corrected spectrum (Scope_DarkCorrected)
+        '''
         if (lerror >= 0):
             if ((ldev_handle == globals.dev_handle) and (globals.pixels > 0)):
                 if (lerror == 0): # normal measurements
@@ -646,6 +655,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     globals.m_Measurements += 1 ## counter for number of measurements
                     timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is 4096 element array of doubles
                     globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
+                    ##!!! DON'T NEED _doublearray VARIABLES, I THINK
                     ##################
                     filename = globals.filename
                     # print(f"handle_newdata === filename: {filename}")
@@ -686,6 +696,20 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         xydata_RefDarkCorr = pd.DataFrame(data_RefDarkCorr_transposed,columns=["Wavelength (nm)","Pixel values (DarkCorr)"])
                         xydata_RefDarkCorr.to_csv(FileObject_RefDarkCorr,index=False)
                         print(f"Dark-Corrected Ref spectrum auto-saved as {FileObject_RefDarkCorr}")
+                        
+                        ##!!! Stray Light Suppression (SLS)
+                            ## need the double-array spectra as input for the function
+                        ##!!! HOW TO DO SUBTRACTION WITH DOUBLE-ARRAYS?
+                        ## globals.RefSpectrum_DarkCorr_doublearray = [globals.RefSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
+                        ##!!! TRY
+                        SLSfactor = 1
+                        ret =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
+                                                          SLSfactor,
+                                                          globals.RefSpectrum_DarkCorr_doublearray,
+                                                          globals.RefSpectrum_DarkSLSCorr_doublearray)
+
+                        
+                        
                     elif globals.MeasurementType == "Measurement":
                         globals.ScopeSpectrum_doublearray = globals.spectraldata
                         globals.ScopeSpectrum = globals.ScopeSpectrum_doublearray[:globals.pixels]
@@ -925,6 +949,11 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         globals.startpixel = globals.DeviceData.m_StandAlone_m_Meas_m_StartPixel
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
         globals.wavelength_doublearray = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
+        print(f"globals.wavelength_doublearray: {globals.wavelength_doublearray}")
+        ##!!! CONVERT TO ARRAY HERE? like KMP
+            ## self.wavelength = np.array(ret[:globals.pixels])
+            ## np_round_to_tenths = np.around(self.wavelength, 1)
+            ## globals.wavelength = list(np_round_to_tenths)
 
         return
 
