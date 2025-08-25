@@ -24,6 +24,8 @@ MeasurementType = ""
 DarkSpectrum = [0.0]
 RefSpectrum  = [0.0]
 RefSpectrum_DarkCorr  = [0.0]
+RefSpectrum_DarkSLSCorr_doublearray = [0.0] * 4096
+RefSpectrum_DarkSLSCorr = [0.0]
 ScopeSpectrum = [0.0]
 ScopeSpectrum_DarkCorr = [0.0]
 #################################

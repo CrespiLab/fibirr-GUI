@@ -475,7 +475,17 @@ def AVS_GetScopeData(handle):
 
 ######################################################################
 ##!!! ADDED (CORRECTLY?)
-def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum, a_pDestSpectrum):
+
+# Define the ctypes function signature
+lib.AVS_SuppressStrayLight.argtypes = [
+    ctypes.c_void_p,           # handle (AvsHandle)
+    ctypes.c_float,            # a_MultiFactor
+    ctypes.POINTER(ctypes.c_double),  # a_pSrcSpectrum (input array)
+    ctypes.POINTER(ctypes.c_double)   # a_pDestSpectrum (output array)
+]
+lib.AVS_SuppressStrayLight.restype = ctypes.c_int  # DLL_INT
+
+def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum):
     ##########
     """
     (
@@ -496,8 +506,8 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum, a_pDestSpectru
     :param a_pSrcSpectrum: Array of doubles (scope minus dark), with array size equal to maximum 
         number of detector pixels (4096)
     :parm a_pDestSpectrum: Array of doubles stray light suppressed, with array size equal to 
-         maximum number of detector pixels (4096). This is the SSL-corrected spectrum that gets saved upon
-         executing this function.
+         maximum number of detector pixels (4096). This is the SSL-corrected spectrum that gets saved 
+         upon executing this function.
 
     :return: SUCCESS = 0 or FAILURE <> 0
     """    
@@ -511,15 +521,21 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum, a_pDestSpectru
         ## 4th: double*, so ctypes.POINTER(ctypes.c_double * 4096) for "a_pSrcSpectrum"
         ## 5th: double*, so ctypes.POINTER(ctypes.c_double * 4096) for "a_pDestSpectrum"
     
-    ##!!! which parameters need to go in func()??
-    prototype = func(ctypes.c_int, ctypes.c_int, ctypes.c_float, 
-                     ctypes.POINTER(ctypes.c_double * 4096), ctypes.POINTER(ctypes.c_double * 4096))
+    # prototype = func(ctypes.c_int, ctypes.c_int, ctypes.c_float, 
+    #                  ctypes.POINTER(ctypes.c_double * 4096), ctypes.POINTER(ctypes.c_double * 4096))
     
     ## parameter indices: 1 is for on-pointer; 2 is for POINTER
-    paramflags = (1, "handle",), (1, "a_MultiFactor",), (2, "a_pSrcSpectrum"), (2, "a_pDestSpectrum"), 
-    AVS_SuppressStrayLight = prototype(("AVS_SuppressStrayLight", lib), paramflags)
-    ret = AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum, a_pDestSpectrum)
-    return ret
+    # paramflags = (1, "handle",), (1, "a_MultiFactor",), (2, "a_pSrcSpectrum"), (2, "a_pDestSpectrum"), 
+    # AVS_SuppressStrayLight = prototype(("AVS_SuppressStrayLight", lib), paramflags)
+    print(f"globals.pixels: {globals.pixels}")
+    NUM_PIXELS = globals.pixels
+    dest_array = (ctypes.c_double * NUM_PIXELS)()
+    
+    ret = lib.AVS_SuppressStrayLight(handle, ctypes.c_float(a_MultiFactor),
+                                     a_pSrcSpectrum, dest_array)
+    # Convert the output back to a Python list
+    corrected_spectrum = list(dest_array)
+    return ret, corrected_spectrum
 
 ######################################################################
 

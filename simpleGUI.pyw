@@ -636,6 +636,17 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             self.StartMeasBtn.setEnabled(True)    
         return         
 
+    @pyqtSlot()
+    def auto_save(self, filename, mode, spectrum):
+        FileObject = filename+f"_{mode}_"+".csv"
+        data_vstack = np.vstack((globals.wavelength,
+                                     spectrum))
+        data_transposed = np.transpose(data_vstack)
+        xydata = pd.DataFrame(data_transposed,columns=["Wavelength (nm)","Pixel values"])
+        xydata.to_csv(FileObject,index=False)
+        print(f"{mode} spectrum auto-saved as {FileObject}")
+
+
     @pyqtSlot(int, int)
     def handle_newdata(self, ldev_handle, lerror):
         '''
@@ -664,13 +675,16 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         globals.DarkSpectrum_doublearray = globals.spectraldata
                         globals.DarkSpectrum = globals.DarkSpectrum_doublearray[:globals.pixels]
                         ####
-                        FileObject_Dark = filename+"_Dark_"+".csv"
-                        data_Dark_vstack = np.vstack((globals.wavelength,
-                                                     globals.DarkSpectrum))
-                        data_Dark_transposed = np.transpose(data_Dark_vstack)
-                        xydata_Dark = pd.DataFrame(data_Dark_transposed,columns=["Wavelength (nm)","Pixel values"])
-                        xydata_Dark.to_csv(FileObject_Dark,index=False)
-                        print(f"Dark spectrum auto-saved as {FileObject_Dark}")
+                        self.auto_save(filename, "Dark", globals.DarkSpectrum)
+
+                        # FileObject_Dark = filename+"_Dark_"+".csv"
+                        # data_Dark_vstack = np.vstack((globals.wavelength,
+                        #                              globals.DarkSpectrum))
+                        # data_Dark_transposed = np.transpose(data_Dark_vstack)
+                        # xydata_Dark = pd.DataFrame(data_Dark_transposed,columns=["Wavelength (nm)","Pixel values"])
+                        # xydata_Dark.to_csv(FileObject_Dark,index=False)
+                        # print(f"Dark spectrum auto-saved as {FileObject_Dark}")
+
                         self.statusBar.showMessage("Dark Spectrum auto-saved") ## Message box added
                     elif globals.MeasurementType == "Ref":
                         globals.RefSpectrum_doublearray = globals.spectraldata
@@ -678,38 +692,54 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         globals.RefSpectrum = globals.RefSpectrum_doublearray[:globals.pixels]
                         print(f"globals.RefSpectrum type: {type(globals.RefSpectrum)}")
                         
-                        FileObject_Ref = filename+"_Ref_"+".csv"
-                        data_Ref_vstack = np.vstack((globals.wavelength,
-                                                     globals.RefSpectrum))
+                        self.auto_save(filename, "Ref", globals.RefSpectrum)
                         
-                        data_Ref_transposed = np.transpose(data_Ref_vstack)
-                        xydata_Ref = pd.DataFrame(data_Ref_transposed,columns=["Wavelength (nm)","Pixel values"])
-                        xydata_Ref.to_csv(FileObject_Ref,index=False)
-                        print(f"Ref spectrum auto-saved as {FileObject_Ref}")
+                        # FileObject_Ref = filename+"_Ref_"+".csv"
+                        # data_Ref_vstack = np.vstack((globals.wavelength,
+                        #                              globals.RefSpectrum))
+                        
+                        # data_Ref_transposed = np.transpose(data_Ref_vstack)
+                        # xydata_Ref = pd.DataFrame(data_Ref_transposed,columns=["Wavelength (nm)","Pixel values"])
+                        # xydata_Ref.to_csv(FileObject_Ref,index=False)
+                        # print(f"Ref spectrum auto-saved as {FileObject_Ref}")
+                        
                         #### Dark-Corrected ####
                         globals.RefSpectrum_DarkCorr = [globals.RefSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
                         print(f"globals.RefSpectrum_DarkCorr type: {type(globals.RefSpectrum_DarkCorr)}")
-                        FileObject_RefDarkCorr = filename+"_RefDarkCorr_"+".csv"
-                        data_RefDarkCorr_vstack = np.vstack((globals.wavelength,
-                                                     globals.RefSpectrum_DarkCorr))
-                        data_RefDarkCorr_transposed = np.transpose(data_RefDarkCorr_vstack)
-                        xydata_RefDarkCorr = pd.DataFrame(data_RefDarkCorr_transposed,columns=["Wavelength (nm)","Pixel values (DarkCorr)"])
-                        xydata_RefDarkCorr.to_csv(FileObject_RefDarkCorr,index=False)
-                        print(f"Dark-Corrected Ref spectrum auto-saved as {FileObject_RefDarkCorr}")
+                        print(f"globals.RefSpectrum_DarkCorr length: {len(globals.RefSpectrum_DarkCorr)}")
                         
+                        self.auto_save(filename, "RefDarkCorr", globals.RefSpectrum_DarkCorr)
+                        
+                        #####################################
                         ##!!! Stray Light Suppression (SLS)
-                            ## need the double-array spectra as input for the function
-                        ##!!! HOW TO DO SUBTRACTION WITH DOUBLE-ARRAYS?
-                        ## globals.RefSpectrum_DarkCorr_doublearray = [globals.RefSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
-                        ##!!! TRY
+                        ##!!! CHECK LIBRARY
+                        '''
+                        Need the ctypes double-array spectra as input for the function
+                            AVS_SuppressStrayLight
+                        '''
+                        ArrayType = ctypes.c_double * 4096 ## ctypes array
+                        globals.RefSpectrum_DarkCorr_doublearray = ArrayType(*globals.RefSpectrum_DarkCorr) ## convert list to ctypes array
+                        print(f"globals.RefSpectrum_DarkCorr_doublearray type: {type(globals.RefSpectrum_DarkCorr_doublearray)}")
+                        ##!!! CHECK IF IT'S EMPTY
+                        
                         SLSfactor = 1
-                        ret =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
+                        ret_code, globals.RefSpectrum_DarkSLSCorr =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
                                                           SLSfactor,
-                                                          globals.RefSpectrum_DarkCorr_doublearray,
-                                                          globals.RefSpectrum_DarkSLSCorr_doublearray)
+                                                          globals.RefSpectrum_DarkCorr_doublearray)
+                        print(f"return code: {ret_code}")
+                        # print(f"globals.RefSpectrum_DarkSLSCorr_doublearray type: {type(globals.RefSpectrum_DarkSLSCorr_doublearray)}")
+                        # print(f"globals.RefSpectrum_DarkSLSCorr_doublearray:\n{globals.RefSpectrum_DarkSLSCorr_doublearray}")
+                        
+                        # globals.RefSpectrum_DarkSLSCorr = globals.RefSpectrum_DarkSLSCorr_doublearray[:globals.pixels]
+                        print(f"globals.RefSpectrum_DarkSLSCorr type: {type(globals.RefSpectrum_DarkSLSCorr)}")
+                        print(f"globals.RefSpectrum_DarkSLSCorr length: {len(globals.RefSpectrum_DarkSLSCorr)}")
+                        print(f"globals.RefSpectrum_DarkSLSCorr:\n{globals.RefSpectrum_DarkSLSCorr}")
 
-                        
-                        
+                        ##!!! EMPTY LIST WHY?
+
+                        self.auto_save(filename, "RefDarkSLSCorr", globals.RefSpectrum_DarkSLSCorr)
+
+
                     elif globals.MeasurementType == "Measurement":
                         globals.ScopeSpectrum_doublearray = globals.spectraldata
                         globals.ScopeSpectrum = globals.ScopeSpectrum_doublearray[:globals.pixels]
@@ -989,7 +1019,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         
         self.NrMeasEdt.setText("1") ## default 1 measurement
         
-        globals.filename = "tests/20250821/TEST"
+        globals.filename = "tests/20250825/TEST"
         print(f"DefaultSettings === globals.filename: {globals.filename}")
         
     def DisconnectGui(self):
