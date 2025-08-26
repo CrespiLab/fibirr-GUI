@@ -489,8 +489,8 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum):
     ##########
     """
     (
-     AvsHandle a_hDevice
-     float a_MultiFactor, ## not *: means it is not a pointer
+     AvsHandle a_hDevice,
+     float a_MultiFactor, (no *: means it is not a pointer)
      double* a_pSrcSpectrum,
      double* a_pDestSpectrum
      )
@@ -511,15 +511,15 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum):
 
     :return: SUCCESS = 0 or FAILURE <> 0
     """    
-        ## I think the first element (c.types.c_int) is the return value of the function itself
-            ## (the error indication), which is an integer (0 or 1)
-            ## ctypes.c_int: Represents the C signed int datatype
-            ## https://docs.python.org/3/library/ctypes.html#ctypes.c_int
-        ## 1st: ctypes.c_int
-        ## 2nd: ctypes.c_int for "handle"
-        ## 3rd: should be a float ctypes.c_float (not a pointer) for "a_MultiFactor"
-        ## 4th: double*, so ctypes.POINTER(ctypes.c_double * 4096) for "a_pSrcSpectrum"
-        ## 5th: double*, so ctypes.POINTER(ctypes.c_double * 4096) for "a_pDestSpectrum"
+    ## I think the first element (c.types.c_int) is the return value of the function itself
+        ## (the error indication), which is an integer (0 or 1)
+        ## ctypes.c_int: Represents the C signed int datatype
+        ## https://docs.python.org/3/library/ctypes.html#ctypes.c_int
+    ## 1st: ctypes.c_int
+    ## 2nd: ctypes.c_int for "handle"
+    ## 3rd: should be a float ctypes.c_float (not a pointer) for "a_MultiFactor"
+    ## 4th: double*, so ctypes.POINTER(ctypes.c_double * 4096) for "a_pSrcSpectrum"
+    ## 5th: double*, so ctypes.POINTER(ctypes.c_double * 4096) for "a_pDestSpectrum"
     
     # prototype = func(ctypes.c_int, ctypes.c_int, ctypes.c_float, 
     #                  ctypes.POINTER(ctypes.c_double * 4096), ctypes.POINTER(ctypes.c_double * 4096))
@@ -527,6 +527,8 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum):
     ## parameter indices: 1 is for on-pointer; 2 is for POINTER
     # paramflags = (1, "handle",), (1, "a_MultiFactor",), (2, "a_pSrcSpectrum"), (2, "a_pDestSpectrum"), 
     # AVS_SuppressStrayLight = prototype(("AVS_SuppressStrayLight", lib), paramflags)
+    
+    
     print(f"globals.pixels: {globals.pixels}")
     NUM_PIXELS = globals.pixels
     dest_array = (ctypes.c_double * NUM_PIXELS)()
@@ -534,6 +536,7 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum):
     ret = lib.AVS_SuppressStrayLight(handle, ctypes.c_float(a_MultiFactor),
                                      a_pSrcSpectrum, dest_array)
     # Convert the output back to a Python list
+    ##!!! USE NUMPY ARRAYS INSTEAD
     corrected_spectrum = list(dest_array)
     return ret, corrected_spectrum
 
