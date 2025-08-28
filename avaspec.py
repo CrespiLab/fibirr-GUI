@@ -535,9 +535,8 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum):
     
     ret = lib.AVS_SuppressStrayLight(handle, ctypes.c_float(a_MultiFactor),
                                      a_pSrcSpectrum, dest_array)
-    # Convert the output back to a Python list
-    ##!!! USE NUMPY ARRAYS INSTEAD
-    corrected_spectrum = list(dest_array)
+    # corrected_spectrum = list(dest_array) # convert to list
+    corrected_spectrum = dest_array # keep as ctypes.c_double
     return ret, corrected_spectrum
 
 ######################################################################

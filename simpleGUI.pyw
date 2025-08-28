@@ -80,6 +80,7 @@ import eeprom_demo
 ##############################
 import numpy as np
 import pandas as pd
+from math import log10
 
 #### DEMO MODE ###
 # MODE = "DEMO"
@@ -94,6 +95,7 @@ MODE = "EXP"
 portID_pin12_DO4 = 0
 SHUTTER_OPEN = 1 ## value to open shutter
 SHUTTER_CLOSE = 0 ## value to close shutter
+##!!! TEST AND FIND OPTIMAL DELAY TIME FOR SHUTTER
 
     ## add to on_ActivateBtn_clicked
 portID_pin12_DO4 = 3 ## portID of pin that controls the shutter
@@ -141,9 +143,11 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         ###########################################
         self.SingleRBtn.setChecked(True)
         self.FixedNrRBtn.setChecked(False)
-        # self.NrMeasEdt.setText("1") ## default 1 measurement
+        # self.NrMeasEdt.setText("1") ## set in DefaultSettings function below
         self.ContinuousRBtn.setChecked(False)
         self.RepetitiveRBtn.setChecked(False)
+        self.Mode_Scope.setChecked(True)
+        self.Mode_Absorbance.setChecked(False)
         ###########################################
         # self.DstrStatusUpdateBtn.setEnabled(False)
         # self.DstrProgBar.setRange(0, 1)
@@ -172,7 +176,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     ###########################################
     ## address of the callback function that has to be defined in the user
     ## program, and will be called by the library
-    ##!!! what are pparam1 and pparam2?
+    ## what are pparam1 and pparam2?
     def measure_cb(self, pparam1, pparam2):
         param1 = pparam1[0] # dereference the pointers
         param2 = pparam2[0]
@@ -361,6 +365,12 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         self.measconfig.m_SaturationDetection,
                         self.measconfig.m_Trigger_m_Mode)
 
+##!!! MAKE FUNCTION FOR OPENING AND CLOSING SHUTTER
+##!!! TEST AND FIND OPTIMAL DELAY TIME
+
+    def ShutterControl(self, command):
+        print(f"shutter {command}")
+
     @pyqtSlot()
     def on_SettingsBtn_clicked(self):
         print("on_SettingsBtn_clicked")
@@ -384,6 +394,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
 
         self.print_settings()
+    ###########################################
 
     @pyqtSlot()
     def on_DarkMeasBtn_clicked(self):
@@ -476,7 +487,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
                  self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
             else:
-                ####!!! TEST THIS: ####
                 ## OPEN SHUTTER ###
                 ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
                 time.sleep(0.5) ## short delay between Open Shutter and Measure
@@ -522,6 +532,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 ##!!! need to test (and add shutter code)
             if (self.FixedNrRBtn.isChecked()):
                 l_NrOfScans = int(self.NrMeasEdt.text())
+                l_interval = int(self.Interval.text()) ##!!! MAKE GLOBAL VARIABLE
                 ## default of FixedNr is 1 (see above) so it is a Single Measurement
             if (self.ContinuousRBtn.isChecked()):
                 l_NrOfScans = -1
@@ -583,10 +594,10 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 
                     elif (self.FixedNrRBtn.isChecked()):
                         ## either make this the Kinetic or make the Repetitive the Kinetic
-                        ##!!! TRY AVS_Measure (maybe not necessary anymore)
 
 
                         for i in range(l_NrOfScans):
+                            print(f"globals.m_Measurements: {globals.m_Measurements}")
 		
                         ### OPEN SHUTTER ###
                             ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
@@ -606,16 +617,26 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         # ##### CLOSE SHUTTER #####
                             time.sleep(0.5) ## short delay between Open Shutter and Measure
                             ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-                            time.sleep(0.5) ## delay between Close Shutter and Open Shutter
+                            time.sleep(l_interval) ## interval between Close Shutter and Open Shutter
 
                 #######
                     else:        
                         if self.ContinuousRBtn.isChecked():
+                            ### OPEN SHUTTER ###
+                            ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                            time.sleep(0.5) ## short delay between Open Shutter and Measure
+
                             while True: 
                                 time.sleep(0.001)
                                 qApp.processEvents()
-                                ##!!! HERE does this somehow re-activate the StartMeasBtn?
-                                ## and does it prevent the GUI from exiting correctly?
+                                
+
+                            # ##### CLOSE SHUTTER #####
+                            time.sleep(0.5) ## short delay between Open Shutter and Measure
+                            ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                            time.sleep(0.5) ## delay between Close Shutter and Open Shutter
+                            ##!!! does it prevent the GUI from exiting correctly?
+
 
             self.StartMeasBtn.setEnabled(True) 
             self.StopMeasBtn.setEnabled(False)
@@ -685,7 +706,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     globals.m_Measurements += 1 ## counter for number of measurements
                     timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is 4096 element array of doubles
                     globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
-                    ##!!! DON'T NEED _doublearray VARIABLES, I THINK
                     ##################
                     filename = globals.filename
                     # print(f"handle_newdata === filename: {filename}")
@@ -721,10 +741,13 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         print(f"globals.RefSpectrum_DarkCorr_doublearray type: {type(globals.RefSpectrum_DarkCorr_doublearray)}")
                         
                         SLSfactor = 1
-                        ret_code, globals.RefSpectrum_DarkSLSCorr =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
+                        ret_code, globals.RefSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
                                                           SLSfactor,
                                                           globals.RefSpectrum_DarkCorr_doublearray)
                         print(f"return code: {ret_code}")
+                        print(f"globals.RefSpectrum_DarkSLSCorr_doublearray type: {type(globals.RefSpectrum_DarkSLSCorr_doublearray)}")
+                        globals.RefSpectrum_DarkSLSCorr = list(globals.RefSpectrum_DarkSLSCorr_doublearray) # convert to list
+
                         print(f"globals.RefSpectrum_DarkSLSCorr type: {type(globals.RefSpectrum_DarkSLSCorr)}")
                         print(f"globals.RefSpectrum_DarkSLSCorr length: {len(globals.RefSpectrum_DarkSLSCorr)}")
                         print(f"globals.RefSpectrum_DarkSLSCorr:\n{globals.RefSpectrum_DarkSLSCorr}")
@@ -733,22 +756,49 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
                     elif globals.MeasurementType == "Measurement":
                         globals.ScopeSpectrum_doublearray = globals.spectraldata
+                        
                         globals.ScopeSpectrum = globals.ScopeSpectrum_doublearray[:globals.pixels]
-                        FileObject_Int = filename+"_Int_"+str(globals.m_Measurements)+".csv"
-                        data_Int_vstack = np.vstack((globals.wavelength,
-                                                     globals.ScopeSpectrum))
-                        data_Int_transposed = np.transpose(data_Int_vstack)
-                        xydata_Int = pd.DataFrame(data_Int_transposed,columns=["Wavelength (nm)","Pixel values"])
-                        xydata_Int.to_csv(FileObject_Int,index=False)
-                        #### Dark Correction
+                        self.auto_save(filename, f"Int_{globals.m_Measurements}", globals.ScopeSpectrum)
+                        
+                        #### Dark Correction ####
                         globals.ScopeSpectrum_DarkCorr = [globals.ScopeSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
                         print(f"globals.ScopeSpectrum_DarkCorr type: {type(globals.ScopeSpectrum_DarkCorr)}")
-                        FileObject_IntDarkCorr = filename+"_IntDarkCorr_"+str(globals.m_Measurements)+".csv"
-                        data_IntDarkCorr_vstack = np.vstack((globals.wavelength,
-                                                     globals.ScopeSpectrum_DarkCorr))
-                        data_IntDarkCorr_transposed = np.transpose(data_IntDarkCorr_vstack)
-                        xydata_IntDarkCorr = pd.DataFrame(data_IntDarkCorr_transposed,columns=["Wavelength (nm)","Pixel values (DarkCorr)"])
-                        xydata_IntDarkCorr.to_csv(FileObject_IntDarkCorr,index=False)
+                        self.auto_save(filename, f"IntDarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
+                        
+                        #####################################
+                        ##!!! SLS
+                        '''
+                        Stray Light Suppression (SLS)
+                        Need the ctypes double-array spectrum as input for the function
+                            AVS_SuppressStrayLight
+                        Tested on spectrometer that has SLS feature
+                        '''
+                        ArrayType = ctypes.c_double * 4096 ## ctypes array
+                        globals.ScopeSpectrum_DarkCorr_doublearray = ArrayType(*globals.ScopeSpectrum_DarkCorr) ## convert list to ctypes array
+                        print(f"globals.ScopeSpectrum_DarkCorr_doublearray type: {type(globals.ScopeSpectrum_DarkCorr_doublearray)}")
+
+                        ##!!! MAKE INTO A FUNCTION
+                        SLSfactor = 1
+                        ret_code, globals.ScopeSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
+                                                          SLSfactor,
+                                                          globals.ScopeSpectrum_DarkCorr_doublearray)
+                        print(f"return code: {ret_code}")
+                        print(f"globals.ScopeSpectrum_DarkSLSCorr_doublearray type: {type(globals.ScopeSpectrum_DarkSLSCorr_doublearray)}")
+                        globals.ScopeSpectrum_DarkSLSCorr = list(globals.ScopeSpectrum_DarkSLSCorr_doublearray) # convert to list
+
+                        print(f"globals.ScopeSpectrum_DarkSLSCorr type: {type(globals.ScopeSpectrum_DarkSLSCorr)}")
+                        print(f"globals.ScopeSpectrum_DarkSLSCorr length: {len(globals.ScopeSpectrum_DarkSLSCorr)}")
+                        print(f"globals.ScopeSpectrum_DarkSLSCorr:\n{globals.ScopeSpectrum_DarkSLSCorr}")
+                        self.auto_save(filename, "IntDarkSLSCorr", globals.ScopeSpectrum_DarkSLSCorr)
+                        
+                        ##!!! ADD ABSORBANCE MODE
+                        if (self.Mode_Absorbance.isChecked()): ## Absorbance mode
+                            print("Absorbance Mode")
+                            globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
+                            globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
+                            self.auto_save(filename, f"Abs_{globals.m_Measurements}", globals.AbsSpectrum)
+
+                    #####################################
                     else:
                         self.statusBar.showMessage("Incorrect MeasurementType. {0:d})".format(lerror))
                     ##################
@@ -818,7 +868,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         self.NrScansEdt.setText("{0:d}".format(j+1))
                         j += 1
                     self.statusBar.showMessage("Meas.Status: Finished Reading RAM")    
-                    self.StartMeasBtn.setEnabled(True)    
+                    self.StartMeasBtn.setEnabled(True)
         else:
             self.statusBar.showMessage("Meas.Status: failed. {0:d})".format(lerror))
             globals.m_Failures += 1
@@ -1001,6 +1051,13 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.DarkCorrChk.setChecked(True)
 
         self.measconfig.m_CorDynDark_m_ForgetPercentage = 100
+        '''
+        From AvaSpec Libary Manual, Section 3.4.6:
+        The Dark Correction Type structure includes an m_enable and m_ForgetPercentage field (see also
+        section 2.6 on Data Elements). Measurements have shown that taking into account the historical dark
+        scans, does not make much difference. The recommended value for m_ForgetPercentage is therefore 
+        100.
+        '''
         self.DarkCorrPercEdt.setText(f"{self.measconfig.m_CorDynDark_m_ForgetPercentage:0d}")
         
         self.measconfig.m_SaturationDetection = 1
@@ -1009,6 +1066,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.InternalTriggerBtn.setChecked(True)
         
         self.NrMeasEdt.setText("1") ## default 1 measurement
+        self.Interval.setText("30") # 30 s interval
         
         globals.filename = "tests/20250825/TEST"
         print(f"DefaultSettings === globals.filename: {globals.filename}")
