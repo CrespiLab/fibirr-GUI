@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1439</width>
-    <height>969</height>
+    <width>1277</width>
+    <height>903</height>
    </rect>
   </property>
   <property name="font">
@@ -408,8 +408,8 @@
       <widget class="QPushButton" name="StartMeasBtn">
        <property name="geometry">
         <rect>
-         <x>160</x>
-         <y>290</y>
+         <x>280</x>
+         <y>310</y>
          <width>131</width>
          <height>24</height>
         </rect>
@@ -421,8 +421,8 @@
       <widget class="QPushButton" name="StopMeasBtn">
        <property name="geometry">
         <rect>
-         <x>160</x>
-         <y>320</y>
+         <x>280</x>
+         <y>340</y>
          <width>131</width>
          <height>24</height>
         </rect>
@@ -437,7 +437,7 @@
          <x>10</x>
          <y>120</y>
          <width>211</width>
-         <height>161</height>
+         <height>211</height>
         </rect>
        </property>
        <property name="title">
@@ -447,7 +447,7 @@
         <property name="geometry">
          <rect>
           <x>20</x>
-          <y>40</y>
+          <y>60</y>
           <width>161</width>
           <height>17</height>
          </rect>
@@ -460,7 +460,7 @@
         <property name="geometry">
          <rect>
           <x>20</x>
-          <y>110</y>
+          <y>40</y>
           <width>151</width>
           <height>17</height>
          </rect>
@@ -469,7 +469,7 @@
          <string>Continuous (shutter open)</string>
         </property>
        </widget>
-       <widget class="QRadioButton" name="RepetitiveRBtn">
+       <widget class="QRadioButton" name="IrrKinRBtn">
         <property name="geometry">
          <rect>
           <x>20</x>
@@ -479,14 +479,14 @@
          </rect>
         </property>
         <property name="text">
-         <string>Repetitive</string>
+         <string>Irradiation Kinetics</string>
         </property>
        </widget>
        <widget class="QLineEdit" name="NrMeasEdt">
         <property name="geometry">
          <rect>
           <x>40</x>
-          <y>60</y>
+          <y>80</y>
           <width>71</width>
           <height>20</height>
          </rect>
@@ -509,7 +509,7 @@
         <property name="geometry">
          <rect>
           <x>40</x>
-          <y>80</y>
+          <y>100</y>
           <width>71</width>
           <height>20</height>
          </rect>
@@ -519,7 +519,7 @@
         <property name="geometry">
          <rect>
           <x>120</x>
-          <y>60</y>
+          <y>80</y>
           <width>81</width>
           <height>16</height>
          </rect>
@@ -532,7 +532,7 @@
         <property name="geometry">
          <rect>
           <x>120</x>
-          <y>80</y>
+          <y>100</y>
           <width>81</width>
           <height>16</height>
          </rect>
@@ -584,10 +584,10 @@
       <widget class="QGroupBox" name="groupBox_7">
        <property name="geometry">
         <rect>
-         <x>240</x>
-         <y>120</y>
+         <x>250</x>
+         <y>190</y>
          <width>211</width>
-         <height>80</height>
+         <height>71</height>
         </rect>
        </property>
        <property name="title">
@@ -627,6 +627,84 @@
         <attribute name="buttonGroup">
          <string notr="true">buttonGroup_2</string>
         </attribute>
+       </widget>
+      </widget>
+      <widget class="QGroupBox" name="groupBox_10">
+       <property name="geometry">
+        <rect>
+         <x>250</x>
+         <y>20</y>
+         <width>211</width>
+         <height>151</height>
+        </rect>
+       </property>
+       <property name="title">
+        <string>LED Control</string>
+       </property>
+       <widget class="QPushButton" name="LED_set">
+        <property name="geometry">
+         <rect>
+          <x>30</x>
+          <y>90</y>
+          <width>151</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Save LED Settings</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="LED_on_manual">
+        <property name="geometry">
+         <rect>
+          <x>30</x>
+          <y>120</y>
+          <width>71</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Turn LED on</string>
+        </property>
+       </widget>
+       <widget class="QPushButton" name="LED_off_manual">
+        <property name="geometry">
+         <rect>
+          <x>120</x>
+          <y>120</y>
+          <width>71</width>
+          <height>23</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Turn LED off</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_31">
+        <property name="geometry">
+         <rect>
+          <x>40</x>
+          <y>20</y>
+          <width>121</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>HERE: drop-down menu</string>
+        </property>
+       </widget>
+       <widget class="QLabel" name="label_32">
+        <property name="geometry">
+         <rect>
+          <x>40</x>
+          <y>40</y>
+          <width>141</width>
+          <height>20</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>HERE: percentage slide bar</string>
+        </property>
        </widget>
       </widget>
      </widget>
@@ -1136,7 +1214,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1439</width>
+     <width>1277</width>
      <height>21</height>
     </rect>
    </property>

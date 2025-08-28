@@ -100,6 +100,8 @@ SHUTTER_CLOSE = 0 ## value to close shutter
     ## add to on_ActivateBtn_clicked
 portID_pin12_DO4 = 3 ## portID of pin that controls the shutter
     ## re-name to PortID_InternalLightSource = 3
+
+## see digital_io_demo.py for SetDigOut information
 ########
 
 ##############################
@@ -145,7 +147,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.FixedNrRBtn.setChecked(False)
         # self.NrMeasEdt.setText("1") ## set in DefaultSettings function below
         self.ContinuousRBtn.setChecked(False)
-        self.RepetitiveRBtn.setChecked(False)
+        self.IrrKinRBtn.setChecked(False)
         self.Mode_Scope.setChecked(True)
         self.Mode_Absorbance.setChecked(False)
         ###########################################
@@ -326,7 +328,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 self.ConnectGui()
                 # print(f"globals.wavelength: {globals.wavelength}")
                 self.on_ReadEepromBtn_clicked() ## the ReadEepromBtn gets clicked: see def below
-                    ## sets integration time and #averages to EEPROM default
+                    ## sets integration time and nr. averages to EEPROM default
                 self.DefaultSettings() # set default settings
                 dtype = 0
                 dtype = ava.AVS_GetDeviceType(globals.dev_handle)  
@@ -368,8 +370,20 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 ##!!! MAKE FUNCTION FOR OPENING AND CLOSING SHUTTER
 ##!!! TEST AND FIND OPTIMAL DELAY TIME
 
-    def ShutterControl(self, command):
-        print(f"shutter {command}")
+    def Shutter_Open(self):
+        delay_s = 0.5
+        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+        time.sleep(delay_s) ## short delay between Open Shutter and Measure
+        
+        print("shutter open")
+
+    def Shutter_Close(self):
+        delay_s = 0.1
+        # time.sleep(delay_b) ##!!! small delay necessary maybe, but ideally command should wait for acquisition to be finished
+        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+        time.sleep(delay_s) ## short delay between Measure and Close Shutter
+        
+        print("shutter closed")
 
     @pyqtSlot()
     def on_SettingsBtn_clicked(self):
@@ -439,7 +453,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 # ##### CLOSE SHUTTER ##### just to be sure
                 ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
                 time.sleep(0.5) ## short delay between Close Shutter and Measure
-                qApp.processEvents() ## 
+                # self.Shutter_Close() ##!!! DOESN'T WORK FOR SOME REASON
+                
+                qApp.processEvents() ##
                 self.statusBar.showMessage("Dark Spectrum recorded")
                 print(f"on_DarkMeasBtn_clicked === globals.m_Measurements: {globals.m_Measurements}") 
                  
@@ -465,7 +481,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
             ###########################################
             l_NrOfScans = int(1) # 1 scan
-            
             ###########################################
             #### changed to DarkMeasBtn ####
             if (self.RefMeasBtn.isEnabled()):
@@ -488,14 +503,18 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                  self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
             else:
                 ## OPEN SHUTTER ###
-                ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                time.sleep(0.5) ## short delay between Open Shutter and Measure
+                # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                # time.sleep(0.5) ## short delay between Open Shutter and Measure
+                self.Shutter_Open()
+                
                 qApp.processEvents()
                 self.statusBar.showMessage("Reference Spectrum recorded")
                 print(f"on_RefMeasBtn_clicked === globals.m_Measurements: {globals.m_Measurements}") 
+                
                 ## CLOSE SHUTTER ###
-                time.sleep(0.1) ## short delay between Measure and Close Shutter
-                ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                # time.sleep(0.1) ## short delay between Measure and Close Shutter
+                # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                self.Shutter_Close()
                 #######
                 self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
                 ##!!! NEED TO ADD CHECKS
@@ -529,15 +548,14 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             ###########################################
             if (self.SingleRBtn.isChecked()): ## added
                 l_NrOfScans = int(1)
-                ##!!! need to test (and add shutter code)
             if (self.FixedNrRBtn.isChecked()):
                 l_NrOfScans = int(self.NrMeasEdt.text())
-                l_interval = int(self.Interval.text()) ##!!! MAKE GLOBAL VARIABLE
-                ## default of FixedNr is 1 (see above) so it is a Single Measurement
+                l_interval = int(self.Interval.text())
             if (self.ContinuousRBtn.isChecked()):
                 l_NrOfScans = -1
-            if (self.RepetitiveRBtn.isChecked()):
-                 l_NrOfScans = int(self.NrMeasEdt.text())
+            if (self.IrrKinRBtn.isChecked()):
+                l_NrOfScans = int(self.NrMeasEdt.text())
+                l_interval = int(self.Interval.text())
             ###########################################
             if (self.StartMeasBtn.isEnabled()):
                 globals.m_DateTime_start = QDateTime.currentDateTime()
@@ -552,28 +570,27 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             self.timer.start(200)   
             ###########################################
             ###!!! add an if-check for the Ref having been measured
-            ##!!! what is the difference between Repetitive and Fixed Number?
+            ## can add to function on_AbsRBtn_checked()
+            
+            
             if (self.RepetitiveRBtn.isChecked()):
-            # if (self.RepetitiveRBtn.isChecked()):
-                ##!!! I think this function is incomplete, because it does not contain l_NrOfScans??
                 lmeas = 0
                 while (self.StartMeasBtn.isEnabled() == False):
                     avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb)
                     l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, 1)
-                    while (globals.m_Measurements - lmeas) < 1: ##!!! what is globals.m_Measurements: the number of measurements made?
-                                                            ## yes: it gets counted at handle_newdata
-                                                            ## but when does that get called?
+                    while (globals.m_Measurements - lmeas) < 1: 
                         time.sleep(0.001)
                         qApp.processEvents()
                     lmeas += 1
-                    ##!!! add shutter OPEN-CLOSE code here??
             ###########################################
             else:    
                 avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
                 l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
+                    ##!!! SET l_NrOfScans to 1 also for Kin and IrrKin??
+                
                 ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
                     ## it is defined above and depends on which Measurement Mode option is checked
-                ## l_Res returns (=) 0 if the measurement callback is successfully started
+                    ## l_Res returns (=) 0 if the measurement callback is successfully started
                 if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
                     self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
                 else:
@@ -581,62 +598,75 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     ####!!! TEST THIS: ####
                     if (self.SingleRBtn.isChecked()):
                         #######
-                        ##!!! CHECK digital_io_demo.py for SetDigOut shenanigans
+                        ##!!! 
                         ## OPEN SHUTTER ###
-                        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                        time.sleep(0.5) ## short delay between Open Shutter and Measure
+                        # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                        # time.sleep(0.5) ## short delay between Open Shutter and Measure
+                        self.Shutter_Open()
+                        
+                        ##!!! ADD while-loop?
                         qApp.processEvents()
                     
                         ##### CLOSE SHUTTER #####
-                        time.sleep(0.5) ## short delay between Measure and Close Shutter
-                        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                        # time.sleep(0.5) ## short delay between Measure and Close Shutter
+                        # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                        self.Shutter_Close()
                         #######
                 
                     elif (self.FixedNrRBtn.isChecked()):
-                        ## either make this the Kinetic or make the Repetitive the Kinetic
-
-
                         for i in range(l_NrOfScans):
                             print(f"globals.m_Measurements: {globals.m_Measurements}")
 		
                         ### OPEN SHUTTER ###
-                            ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                            time.sleep(0.5) ## short delay between Open Shutter and Measure
+                            # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                            # time.sleep(0.5) ## short delay between Open Shutter and Measure
+                            self.Shutter_Open()
                         
                         ######## MY WAY ########
-                            qApp.processEvents() ## qApp is from PyQt5
+                            # qApp.processEvents() ## qApp is from PyQt5
+                            ##!!! NEED TO WAIT WHILE MEASUREMENT IS HAPPENING
+                            ## just add a delay myself?
                         ##############################
+                            ##!!! MAYBE CHANGE TO USING AVS_PollScan()
                                 
                         # ########## AVASPEC WAY ##########
-                            # while globals.m_Measurements <= l_NrOfScans:
-                            #     time.sleep(0.001)
-                            #     qApp.processEvents() ## qApp is from PyQt5
+                            while globals.m_Measurements <= l_NrOfScans:
+                                time.sleep(0.001)
+                                qApp.processEvents() ## qApp is from PyQt5
                         ##############################
+                            print("Measurement acquisition finished")
 
                         #######################
                         # ##### CLOSE SHUTTER #####
-                            time.sleep(0.5) ## short delay between Open Shutter and Measure
-                            ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                            # time.sleep(0.5) ## short delay between Open Shutter and Measure
+                            # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                            self.Shutter_Close()
+                            
                             time.sleep(l_interval) ## interval between Close Shutter and Open Shutter
+                            ##!!! TURN INTO: 
+                                # for b in range(int(l_interval)):
+                                #     time.sleep(1)
+                                #     if self.qy_cancelled == True:
+                                #         break
 
                 #######
                     else:        
                         if self.ContinuousRBtn.isChecked():
                             ### OPEN SHUTTER ###
-                            ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                            time.sleep(0.5) ## short delay between Open Shutter and Measure
+                            # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+                            # time.sleep(0.5) ## short delay between Open Shutter and Measure
+                            self.Shutter_Open()
 
                             while True: 
                                 time.sleep(0.001)
                                 qApp.processEvents()
-                                
 
                             # ##### CLOSE SHUTTER #####
-                            time.sleep(0.5) ## short delay between Open Shutter and Measure
-                            ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-                            time.sleep(0.5) ## delay between Close Shutter and Open Shutter
+                            self.Shutter_Close()
+                            # time.sleep(0.5) ## short delay between Open Shutter and Measure
+                            # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                            # time.sleep(0.5) ## delay between Close Shutter and Open Shutter
                             ##!!! does it prevent the GUI from exiting correctly?
-
 
             self.StartMeasBtn.setEnabled(True) 
             self.StopMeasBtn.setEnabled(False)
@@ -653,8 +683,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     def update_plot(self):
         if (self.DisableGraphChk.isChecked() == False):
             self.plot.update_plot() ## plot.py/update_plot() uses the new data: globals.spectraldata
+            ##!!! ADD HERE: UPDATE ABSORBANCE PLOT
         if (globals.m_Measurements == int(self.NrMeasEdt.text())):
-            self.StartMeasBtn.setEnabled(True)    
+            self.StartMeasBtn.setEnabled(True)     
         return         
 
     @pyqtSlot()
@@ -705,14 +736,19 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     timestamp = 0
                     globals.m_Measurements += 1 ## counter for number of measurements
                     timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is 4096 element array of doubles
-                    globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
+                    # globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
+                    # print(f"handle_newdata ==== globals.wavelength type: {type(globals.wavelength)}")
+
                     ##################
                     filename = globals.filename
                     # print(f"handle_newdata === filename: {filename}")
                     ##################
                     if globals.MeasurementType == "Dark":
                         globals.DarkSpectrum_doublearray = globals.spectraldata
+                        print(f"globals.DarkSpectrum_doublearray type: {type(globals.DarkSpectrum_doublearray)}")
                         globals.DarkSpectrum = globals.DarkSpectrum_doublearray[:globals.pixels]
+                        print(f"globals.DarkSpectrum type: {type(globals.DarkSpectrum)}")
+                        print(f"globals.DarkSpectrum length: {len(globals.DarkSpectrum)}")
                         ####
                         self.auto_save(filename, "Dark", globals.DarkSpectrum)
                         self.statusBar.showMessage("Dark Spectrum auto-saved") ## Message box added
@@ -826,21 +862,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     self.TimeSinceStartEdt.setText("{0:d}".format(l_Seconds))
                     self.NrScansEdt.setText("{0:d}".format(globals.m_Measurements))
                     ###########################################
-                    ###########################################
-                    ##!!! ADD if-statements for
-                    ## Intensity and Absorbance modes
-                    ## if Abs
-                    ## abs_data = np.log10(np.divide(data_ref, data)) ## but improve it (what filetype is globals.spectraldata??)
-
-                    ###########################################
-                    ###########################################
-                    ##!!! TEST THIS: ####
-                    # if (self.SingleRBtn.isChecked()):
-                    #    self.StartMeasBtn.setEnabled(int(1) == globals.m_Measurements) 
-                           ## enable Start Measurement button when 1 is equal to
-                               ## the number of measured spectra (globals.m_Measurements)                   
-                   ####             ####
-                    
                     if (self.FixedNrRBtn.isChecked()):
                        self.StartMeasBtn.setEnabled(int(self.NrMeasEdt.text()) == globals.m_Measurements) 
                            ## enable Start Measurement button when the user-defined #meas (NrMeasEdt) is equal to
@@ -869,6 +890,11 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         j += 1
                     self.statusBar.showMessage("Meas.Status: Finished Reading RAM")    
                     self.StartMeasBtn.setEnabled(True)
+                ##!!! DELAY ADDED HERE: account for time that acquisition takes
+                delay_acq = (self.measconfig.m_IntegrationTime * self.measconfig.m_NrAverages)/1000 # acquisition time (ms)
+                print(f"delay_acq: {delay_acq}")
+                time.sleep(delay_acq)
+                
         else:
             self.statusBar.showMessage("Meas.Status: failed. {0:d})".format(lerror))
             globals.m_Failures += 1
@@ -1020,12 +1046,9 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         globals.startpixel = globals.DeviceData.m_StandAlone_m_Meas_m_StartPixel
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
         globals.wavelength_doublearray = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
-        print(f"globals.wavelength_doublearray: {globals.wavelength_doublearray}")
-        ##!!! CONVERT TO ARRAY HERE? like KMP
-            ## self.wavelength = np.array(ret[:globals.pixels])
-            ## np_round_to_tenths = np.around(self.wavelength, 1)
-            ## globals.wavelength = list(np_round_to_tenths)
-
+        print(f"ConnectGui ==== globals.wavelength_doublearray: {globals.wavelength_doublearray}")
+        globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
+        print(f"ConnectGui ==== globals.wavelength: {globals.wavelength}")
         return
 
     def DefaultSettings(self):
