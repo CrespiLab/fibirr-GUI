@@ -2,7 +2,7 @@
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
-import analog_io
+from UIs import analog_io
 from avaspec import *
 import globals
 
