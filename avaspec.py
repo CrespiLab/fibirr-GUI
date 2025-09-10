@@ -36,7 +36,6 @@ elif 'darwin' in sys.platform: # macOS will have 'darwin'
     lib = ctypes.CDLL("/usr/local/lib/libavs.0.dylib")
     func = ctypes.CFUNCTYPE
 else: # Windows will have 'win32' or 'cygwin'
-    import ctypes.wintypes
     if (ctypes.sizeof(ctypes.c_voidp) == 8): # 64 bit
         WM_MEAS_READY = 0x8001
         # lib = ctypes.WinDLL("./avaspecx64.dll")
