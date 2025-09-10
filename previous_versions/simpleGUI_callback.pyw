@@ -26,9 +26,9 @@ TO DO/ADD:
     => already done: measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
     [DONE] Change name of feature in GUI to Dynamic Dark Correction
 
-[] Add "Stray Light Suppression/Correction": 
+[DONE] Add "Stray Light Suppression/Correction": 
     - [DONE] Ask Avantes: need the .py source code of the Qt_Demo_SLS compiled programme => does not exist...
-    - [] Check the C++ code for inspiration and apply AVS_SuppressStrayLight in .py
+    - [DONE] Check the C++ code for inspiration and apply AVS_SuppressStrayLight in .py
 
 [] "Record Reference" button that stores reference data (as np array) to be used here as well as saves it as a .csv file
 [] "Record Dark" button that stores dark data and creates a dark-corrected Intensity spectrum by subtraction
@@ -51,7 +51,7 @@ Improve the spectral viewer:
 [] switch between Intensity and Absorbance modes (tabs)
 #######
 Improve code:
-[] Remove * imports (convert to regular "full" imports)
+[DONE] Remove * imports (convert to regular "full" imports)
 
 """
 #!/usr/bin/env python3
