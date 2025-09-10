@@ -23,7 +23,7 @@ class Worker(QObject):
 
 class MainWindow(QMainWindow, form1.Ui_MainWindow):
     timer = QTimer()
-    newdata = pyqtSignal()
+    newdata = pyqtSignal(int, int)
     cancel = pyqtSignal()
     cancelled = False
     
@@ -118,6 +118,7 @@ class MainWindow(QMainWindow, form1.Ui_MainWindow):
     def Kinetic_Measurement(self):
         print("=== Kinetic_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
+        globals.NrScanned = 0
         nummeas = int(self.NumMeasEdt.text())
         delay = 2
         self.cancelled = False
@@ -164,7 +165,6 @@ class MainWindow(QMainWindow, form1.Ui_MainWindow):
 
         ret = AVS_PrepareMeasure(globals.dev_handle, measconfig)
         nummeas=1
-        globals.NrScanned = 0
         timestamp = 0
         print(f"globals.NrScanned: {globals.NrScanned}")
 
@@ -178,7 +178,7 @@ class MainWindow(QMainWindow, form1.Ui_MainWindow):
         if globals.dataready == True:
             timestamp, globals.spectraldata = AVS_GetScopeData(globals.dev_handle)
             globals.spectraldata = globals.spectraldata[:globals.pixels]
-            self.newdata.emit()
+            self.newdata.emit(globals.dev_handle, ret)
             time.sleep(0.3)
         self.Shutter_Close()
         print("One Measurement done")
@@ -206,16 +206,20 @@ class MainWindow(QMainWindow, form1.Ui_MainWindow):
             self.StartMeasBtn.setEnabled(True)    
         return        
 
-    @pyqtSlot()
-    def handle_newdata(self):
+    @pyqtSlot(int,int)
+    def handle_newdata(self, ldev_handle, lerror):
         ''' for PollScan method '''
-        print("=== handle_newdata ===")
-        try:
-            print(f"globals.dataready: {globals.dataready}")
-            globals.NrScanned += 1  
-            self.update_plot()
-        except:
-            print("new data was not handled")
+        if (lerror >= 0):
+            ##!!! the input for ldev_handle is globals.dev_handle, so seems redundant
+            if ((ldev_handle == globals.dev_handle) and (globals.pixels > 0)):
+                # self.statusBar.showMessage("Meas.Status: success")
+                print("=== handle_newdata ===")
+                try:
+                    print(f"globals.dataready: {globals.dataready}")
+                    globals.NrScanned += 1  
+                    self.update_plot()
+                except:
+                    print("new data was not handled")
         return
 
 def main():
