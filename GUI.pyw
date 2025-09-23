@@ -119,7 +119,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     SPECTR_LIST_COLUMN_COUNT = 5
     newdata = pyqtSignal(int, int) ## define new signal as a class attribute # (int,int) for callback
         ## is used below in __init__
-    dstrStatus = pyqtSignal(int, int)
     cancel = pyqtSignal()
     cancelled = False
 
@@ -159,17 +158,11 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.Mode_Scope.setChecked(True)
         self.Mode_Absorbance.setChecked(False)
         ###########################################
-        # self.DstrStatusUpdateBtn.setEnabled(False)
-        # self.DstrProgBar.setRange(0, 1)
-        # self.DstrProgBar.setValue(0)
-        # self.DssEvent_Chk.setChecked(False)
-        # self.FoeEvent_Chk.setChecked(False)
-        # self.IErrorEvent_Chk.setChecked(False)
-        ###########################################
         self.SpectrometerList.clicked.connect(self.on_SpectrometerList_clicked)
 #       self.OpenCommBtn.clicked.connect(self.on_OpenCommBtn_clicked)
     #       for buttons, do not use explicit connect together with the on_ notation, or you will get
     #       two signals instead of one!
+        
         self.timer.timeout.connect(self.update_plot) ## This signal is emitted when the timer times out.
         self.timer.stop() ## Stops the timer.
         
@@ -179,19 +172,10 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 ## to slot: self.handle_newdata
         ###########################################
         self.cancel.connect(self.cancel_meas)
-
-        
-        # self.dstrStatus.connect(self.handle_dstrstatus) ## Dynamics STR function
         self.DisableGraphChk.stateChanged.connect(self.on_DisableGraphChk_stateChanged)
         ava.AVS_Done()
     
     ###########################################
-    def dstr_cb(self, pparam1, pparam2):
-        param1 = pparam1[0] # dereference the pointers
-        temp = ctypes.cast(ctypes.addressof(pparam2), ctypes.POINTER(ctypes.c_uint)) # change to correct type
-        param2 = temp[0]
-        self.dstrStatus.emit(param1, param2)
-
     @pyqtSlot()
 #   if you leave out the @pyqtSlot() line, you will also get an extra signal!
     #   so you might even get three!
@@ -415,15 +399,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         if MODE == "DEMO":
             print("DEMO MODE: on_DarkMeasBtn_clicked clicked")
         elif MODE == "EXP":
-            ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
-            ret = ava.AVS_EnableLogging(False)
             ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
-            if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
-                ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
-            if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
-                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB) or
-                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB)):
-                ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
             ###########################################
             l_NrOfScans = int(1) # 1 scan
             ###########################################
@@ -438,7 +414,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 self.NrFailuresEdt.setText("{0:d}".format(0))
             self.DarkMeasBtn.setEnabled(False) 
 
-            ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
             globals.m_Measurements = 0
             timestamp = 0
             print(f"globals.m_Measurements: {globals.m_Measurements}")
@@ -473,15 +448,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         if MODE == "DEMO":
             print("DEMO MODE: on_RefMeasBtn_clicked clicked")
         elif MODE == "EXP":
-            ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
-            ret = ava.AVS_EnableLogging(False)
             ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
-            if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
-                ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
-            if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
-                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB) or
-                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB)):
-                ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
             ###########################################
             l_NrOfScans = int(1) # 1 scan
             ###########################################
@@ -509,7 +476,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     @pyqtSlot()
     def on_StartMeasBtn_clicked(self):
         globals.MeasurementType = "Measurement"
-        print(f"=== StartMeasBtn clicked ===")
+        print("=== StartMeasBtn clicked ===")
         
         if (self.StartMeasBtn.isEnabled()):
             globals.m_DateTime_start = QDateTime.currentDateTime()
@@ -523,6 +490,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.StopMeasBtn.setEnabled(True)
         # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
         
+        ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
+
         ###!!! in case of Absorbance Mode: add an if-check for the Ref having been measured
         ## if (self.AbsorbanceMode.isChecked()):
             
@@ -557,6 +526,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                 l_NrOfScans = int(self.NrMeasEdt.text())
             
             ##!!! ADD FUNCTIONALITY
+
             
         if (self.IrrKinRBtn.isChecked()):
             l_NrOfScans = int(self.NrMeasEdt.text())
@@ -580,20 +550,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         ##!!! COMBINE so that Dark and Ref also use this function
         print("=== One_Measurement ===")
         ###########################################        
-        ##!!! MOVE TO ConnectGUI?
-        ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
-        ret = ava.AVS_EnableLogging(False)
-        ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
-        ###########################################
-        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
-            ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
-        if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
-            (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB) or
-            (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB)):
-            ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
-        ###########################################
-        
-        ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
         timestamp = 0
         print(f"globals.m_Measurements: {globals.m_Measurements}")
 
@@ -613,7 +569,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             time.sleep(self.delay_acq)
         
         self.Shutter_Close()
-
         print("One Measurement done")
         return
 
@@ -655,19 +610,19 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                     print(f"Waiting for {delay} s")
                     time.sleep(delay)
                     print(f"Delay {delay} s done")
-        print(f"{nummeas} measurements done")
+        print(f"Kinetic measurement done ({nummeas} measurements)")
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
         return
 
     @pyqtSlot()
     def on_StopMeasBtn_clicked(self): 
-        # ret = ava.AVS_StopMeasure(globals.dev_handle)
         print("=== StopMeasBtn clicked ===")
         self.cancel.emit()
         time.sleep(1)
         self.StartMeasBtn.setEnabled(True)
-        self.timer.stop()
+        self.StopMeasBtn.setEnabled(False)
+        # self.timer.stop()
         return
 
     @pyqtSlot()
@@ -678,8 +633,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
 
     @pyqtSlot()
     def update_plot(self):
-        ### currently  is controlled by self.timer! self.timer(200) is started upon clicking the StartMeasurement button
-        
         if (self.DisableGraphChk.isChecked() == False):
             self.plot.update_plot() ## plot.py/update_plot() uses the new data: globals.spectraldata
         
@@ -740,8 +693,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                         globals.m_Measurements += 1
                         timestamp = 0
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
-                        # globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
-                        # print(f"handle_newdata ==== globals.wavelength type: {type(globals.wavelength)}")
                         # ##################
                         filename = globals.filename
                         # print(f"handle_newdata === filename: {filename}")
@@ -853,7 +804,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
                             SpectrumIsSatured = SpectrumIsSatured or globals.saturated[j]
                             j += 1
                             self.SaturatedChk.setChecked(SpectrumIsSatured)
-                        # self.plot.update_plot()
                         l_Dif = timestamp - globals.m_PreviousTimeStamp  # timestamps in 10 us ticks
                         globals.m_PreviousTimeStamp = timestamp ##!!! use this as timestamp
                         
@@ -910,32 +860,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             globals.m_Failures += 1
         self.NrFailuresEdt.setText("{0:d}".format(globals.m_Failures))    
         return
-
-    # @pyqtSlot(int, int)
-    # def handle_dstrstatus(self, ldev_handle, lstatus):
-    #     if (ldev_handle == globals.dev_handle): 
-    #         globals.mDstrRecvCount += 1
-    #         self.on_DstrStatusUpdateBtn_clicked()
-    #     if (lstatus > 0):
-    #         self.StartMeasBtn.setEnabled(True)
-    #     return
-
-    # @pyqtSlot()
-    # def on_DstrStatusUpdateBtn_clicked(self):
-    #     l_DstrStatus = DstrStatusType()
-    #     l_DstrStatus = AVS_GetDstrStatus(globals.dev_handle)
-    #     if (self.DstrRBtn.isChecked() == True):
-    #         self.DstrStatusRecvCountEdt.setText("{0:d}".format(globals.mDstrRecvCount))
-    #         self.DstrTotalScansEdt.setText("{0:d}".format(l_DstrStatus.m_TotalScans))
-    #         self.DstrUsedScansEdt.setText("{0:d}".format(l_DstrStatus.m_UsedScans))
-    #         self.DstrFlagsEdt.setText("{0:08b}".format(l_DstrStatus.m_Flags))
-    #         self.DssEvent_Chk.setChecked(l_DstrStatus.m_Flags & DSTR_STATUS_DSS_MASK)
-    #         self.FoeEvent_Chk.setChecked(l_DstrStatus.m_Flags & DSTR_STATUS_FOE_MASK)
-    #         self.IErrorEvent_Chk.setChecked(l_DstrStatus.m_Flags & DSTR_STATUS_IERR_MASK) 
-    #         if (l_DstrStatus.m_TotalScans > 0):
-    #             self.DstrProgBar.setRange(0, l_DstrStatus.m_TotalScans)
-    #             self.DstrProgBar.setValue(l_DstrStatus.m_UsedScans)      
-    #     return    
 
     @pyqtSlot()
     def on_ReadEepromBtn_clicked(self):
@@ -1051,6 +975,10 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             self.LowNoiseRBtn.setChecked(True)  # low noise default
             self.HighSensitivityRBtn.setChecked(False)
             l_Res = ava.AVS_SetSensitivityMode(globals.dev_handle, 0) 
+
+        ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
+        ret = ava.AVS_EnableLogging(False)
+            
         globals.pixels = globals.DeviceData.m_Detector_m_NrPixels
         self.NrPixelsEdt.setText("{0:d}".format(globals.pixels))
         globals.startpixel = globals.DeviceData.m_StandAlone_m_Meas_m_StartPixel
@@ -1121,7 +1049,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.ReadEepromBtn.setEnabled(False)
         self.WriteEepromBtn.setEnabled(False)
         self.StartMeasBtn.setEnabled(False)
-        # self.DstrStatusUpdateBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(False)
         self.ResetSpectrometerBtn.setEnabled(False)
         return
@@ -1136,7 +1063,6 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.ReadEepromBtn.setEnabled(s == "USB_IN_USE_BY_APPLICATION" or s == "ETH_IN_USE_BY_APPLICATION")
         self.WriteEepromBtn.setEnabled(s == "USB_IN_USE_BY_APPLICATION" or s == "ETH_IN_USE_BY_APPLICATION")       
         self.StartMeasBtn.setEnabled(s == "USB_IN_USE_BY_APPLICATION" or s == "ETH_IN_USE_BY_APPLICATION")
-        # self.DstrStatusUpdateBtn.setEnabled(s == "USB_IN_USE_BY_APPLICATION" or s == "ETH_IN_USE_BY_APPLICATION")
         self.StopMeasBtn.setEnabled(s == "USB_IN_USE_BY_APPLICATION" or s == "ETH_IN_USE_BY_APPLICATION")
         self.ResetSpectrometerBtn.setEnabled(s == "USB_IN_USE_BY_APPLICATION" or s == "ETH_IN_USE_BY_APPLICATION")
         return 
