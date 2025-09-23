@@ -91,9 +91,9 @@ class MainWindow(QMainWindow, form1.Ui_MainWindow):
         ## Added QThread functionality
         
         try:
-            if self.thread_qy.isRunning():
+            if self.thread_meas.isRunning():
                 print("Shutting down running thread.")
-                self.thread_qy.terminate()
+                self.thread_meas.terminate()
                 time.sleep(1)
             else:
                 print("No thread was running.")
@@ -102,6 +102,9 @@ class MainWindow(QMainWindow, form1.Ui_MainWindow):
         self.thread_meas = QThread() # this creates an additional computing thread for processes, so the main window doesn't freeze
         self.worker_meas = Worker() # this is a worker that will tell when the job is done
         self.worker_meas.func = self.Kinetic_Measurement #here the job of the worker is defined. it should only be one function
+        print(f"self.worker_meas.func: {self.worker_meas.func}")
+
+        
         self.worker_meas.moveToThread(self.thread_meas) #the workers job is moved from the frontend to the thread in backend
         self.thread_meas.started.connect(self.worker_meas.run) # when the thread is started, the worker runs
         self.worker_meas.finished.connect(self.thread_meas.quit) # when the worker is finished, the thread is quit

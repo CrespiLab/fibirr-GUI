@@ -64,7 +64,8 @@ import sys
 import ctypes
 import time
 
-from PyQt5.QtCore import QTimer, pyqtSignal, pyqtSlot, QDateTime, Qt
+from PyQt5.QtCore import (QTimer, pyqtSignal, pyqtSlot, QDateTime, Qt, 
+                          QObject, QThread)
 from PyQt5.QtWidgets import (QMainWindow, QAbstractItemView, QTableWidgetItem, 
                              QMessageBox, QListWidget, qApp, QFileDialog, QApplication)
 
@@ -105,6 +106,13 @@ portID_pin12_DO4 = 3 ## portID of pin that controls the shutter
 
 ##############################
 #############################
+class Worker(QObject):
+    finished = pyqtSignal()
+    func = None
+    def run(self):
+        self.func()
+        self.finished.emit()
+        return
 
 class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     timer = QTimer() 
@@ -112,7 +120,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
     newdata = pyqtSignal(int, int) ## define new signal as a class attribute # (int,int) for callback
         ## is used below in __init__
     dstrStatus = pyqtSignal(int, int)
-    
+    cancel = pyqtSignal()
+    cancelled = False
 
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
@@ -169,6 +178,8 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
             ## this connects signal: pyqtSignal(int, int)
                 ## to slot: self.handle_newdata
         ###########################################
+        self.cancel.connect(self.cancel_meas)
+
         
         # self.dstrStatus.connect(self.handle_dstrstatus) ## Dynamics STR function
         self.DisableGraphChk.stateChanged.connect(self.on_DisableGraphChk_stateChanged)
@@ -515,40 +526,53 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         ###!!! in case of Absorbance Mode: add an if-check for the Ref having been measured
         ## if (self.AbsorbanceMode.isChecked()):
             
+        ######################################################################
+        ### added QThread functionality ###
+        try:
+            if self.thread_meas.isRunning():
+                print("Shutting down running thread.")
+                self.thread_meas.terminate()
+                time.sleep(1)
+            else:
+                print("No thread was running.")
+        except:
+            print("Didn't find thread.")
+
+        self.thread_meas = QThread() # this creates an additional computing thread for processes, so the main window doesn't freeze
+        self.worker_meas = Worker() # this is a worker that will tell when the job is done
         
-        ##!!! ADD QThread functionality
         if (self.SingleRBtn.isChecked()): ## added
             ## globals.MeasurementType = "Single" ##!!! ADD
+
             l_NrOfScans = int(1)
-            print(f"====== SingleRBtn ======\nl_NrOfScans: {l_NrOfScans}")
-            self.One_Measurement()
-            
+            self.worker_meas.func = self.Single_Measurement #here the job of the worker is defined. it should only be one function
         if (self.FixedNrRBtn.isChecked()):
-            l_NrOfScans = int(self.NrMeasEdt.text())
-            l_interval = int(self.Interval.text())
-
-            for i in range(l_NrOfScans):
-                print(f"====== FixedNrRBtn ======\nl_NrOfScans: {l_NrOfScans}")
-
-                self.One_Measurement()
-                
-                if globals.m_Measurements != l_NrOfScans:
-                    print(f"Waiting for {l_interval} s")
-                    time.sleep(l_interval)
-
+            globals.l_NrOfScans = int(self.NrMeasEdt.text())
+            globals.l_interval = int(self.Interval.text())
+            self.worker_meas.func = self.Kinetic_Measurement #here the job of the worker is defined. it should only be one function
         if (self.ContinuousRBtn.isChecked()):
             if self.NrMeasEdt.text() == "0":
                 l_NrOfScans = -1
             else:
                 l_NrOfScans = int(self.NrMeasEdt.text())
+            
+            ##!!! ADD FUNCTIONALITY
+            
         if (self.IrrKinRBtn.isChecked()):
             l_NrOfScans = int(self.NrMeasEdt.text())
             l_interval = int(self.Interval.text())
+            
+            ##!!! ADD FUNCTIONALITY
 
-        print("Measurement Done.")
-        
-        self.StartMeasBtn.setEnabled(True)
-        self.StopMeasBtn.setEnabled(False)
+
+        self.worker_meas.moveToThread(self.thread_meas) #the workers job is moved from the frontend to the thread in backend
+        self.thread_meas.started.connect(self.worker_meas.run) # when the thread is started, the worker runs
+        self.worker_meas.finished.connect(self.thread_meas.quit) # when the worker is finished, the thread is quit
+        self.worker_meas.finished.connect(self.worker_meas.deleteLater)
+        self.thread_meas.finished.connect(self.thread_meas.deleteLater)
+        self.thread_meas.start() #here the thread is actually started
+
+        print("Finished thread setup.")
         return
 
     @pyqtSlot()
@@ -594,217 +618,62 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         return
 
     @pyqtSlot()
+    def Single_Measurement(self):
+        print("=== Single_Measurement ===")
+        self.StartMeasBtn.setEnabled(False)
+        self.cancelled = False
+
+        if self.cancelled == True: ## break loop if Stop button was pressed
+            print("Stopped Measurement")
+            self.Shutter_Close()
+            return
+        else:
+            self.One_Measurement()
+        print("Single Measurement done")
+        self.StartMeasBtn.setEnabled(True)
+        self.StopMeasBtn.setEnabled(False)
+        return
+
+    @pyqtSlot()
     def Kinetic_Measurement(self):
         print("=== Kinetic_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
-        nummeas = int(self.NumMeasEdt.text())
+        nummeas = globals.l_NrOfScans
         globals.m_Measurements = 0
-
-        delay = 2
+        delay = globals.l_interval
         self.cancelled = False
-        
+
         for i in range(nummeas):
             if self.cancelled == True: ## break loop if Stop button was pressed
                 print("Stopped Kinetic Measurement")
                 self.Shutter_Close()
                 return
             else:
-                print(f"for-loop===n\nnummeas: {nummeas}")
+                print(f"for-loop===nummeas: {nummeas}")
                 self.One_Measurement()
-                if globals.NrScanned != nummeas:
+                if globals.m_Measurements != nummeas:
                     print(f"Waiting for {delay} s")
                     time.sleep(delay)
                     print(f"Delay {delay} s done")
         print(f"{nummeas} measurements done")
         self.StartMeasBtn.setEnabled(True)
-
-
-
-    
-    # @pyqtSlot()
-    # def on_StartMeasBtn_clicked(self):
-    def old_startmeasbtn(self):
-        globals.MeasurementType = "Measurement"
-        if MODE == "DEMO":
-            print("DEMO MODE: on_StartMeasBtn_clicked clicked")
-        elif MODE == "EXP":
-            ####!!! ADD Save As window here
-            # globals.filename = QFileDialog.getSaveFileName(self, 'Select filename',
-            #                                                'c:\\Users\\SyrrisAsia\\Desktop\\test',
-            #                                                "Comma-separated values (.csv)")
-            # print(f"PRINTED globals.filename[0]: {globals.filename[0]}")
-            ################################################################
-            ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
-            ret = ava.AVS_EnableLogging(False)
-            ###########################################
-            ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
-            if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):
-                ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked())
-            if ((globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMS9201) or 
-                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB) or
-                (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB)):
-                ava.AVS_SetSensitivityMode(globals.dev_handle, self.HighSensitivityRBtn.isChecked())
-            ###########################################
-            if (self.SingleRBtn.isChecked()): ## added
-                l_NrOfScans = int(1)
-            if (self.FixedNrRBtn.isChecked()):
-                l_NrOfScans = int(self.NrMeasEdt.text())
-                l_interval = int(self.Interval.text())
-            if (self.ContinuousRBtn.isChecked()):
-                if self.NrMeasEdt.text() == "0":
-                    l_NrOfScans = -1
-                else:
-                    l_NrOfScans = int(self.NrMeasEdt.text())
-            if (self.IrrKinRBtn.isChecked()):
-                l_NrOfScans = int(self.NrMeasEdt.text())
-                l_interval = int(self.Interval.text())
-            ###########################################
-            if (self.StartMeasBtn.isEnabled()):
-                globals.m_DateTime_start = QDateTime.currentDateTime()
-                globals.m_SummatedTimeStamps = 0.0
-                globals.m_Measurements = 0
-                globals.m_Failures = 0
-                self.TimeSinceStartEdt.setText("{0:d}".format(0))
-                self.NrScansEdt.setText("{0:d}".format(0))
-                self.NrFailuresEdt.setText("{0:d}".format(0))
-            self.StartMeasBtn.setEnabled(False) 
-            self.StopMeasBtn.setEnabled(True)
-            self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
-            ###########################################
-            ###!!! add an if-check for the Ref having been measured
-            ## can add to function on_AbsRBtn_checked() maybe
-            
-            
-            if (self.IrrKinRBtn.isChecked()):
-                ##!!! ADD HERE IRRKIN FUNCTION
-                print("self.IrrKinRBtn checked")
-                # lmeas = 0
-                # while (self.StartMeasBtn.isEnabled() == False):
-                #     avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb)
-                #     l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, 1)
-                #     while (globals.m_Measurements - lmeas) < 1: 
-                #         time.sleep(0.001)
-                #         qApp.processEvents()
-                #     lmeas += 1
-            ###########################################
-            else:    
-                avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
-                l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, l_NrOfScans)
-                    ##!!! SET l_NrOfScans to 1 also for Kin and IrrKin??
-                
-                ## l_NrOfScans is number of measurements to do. -1 is infinite, -2 is used to
-                    ## it is defined above and depends on which Measurement Mode option is checked
-                    ## l_Res returns (=) 0 if the measurement callback is successfully started
-                if (0 != l_Res): ## if not zero, measurement callback was not started, so it is a fail
-                    self.statusBar.showMessage("AVS_MeasureCallback failed, error: {0:d}".format(l_Res))    
-                else:
-                    ###########################################
-                    ####!!! TEST THIS: ####
-                    if (self.SingleRBtn.isChecked()):
-                        print(f"===\nSingleRBtn \nglobals.m_Measurements: {globals.m_Measurements}\n===")
-
-                        #######
-                        ##!!! 
-                        ## OPEN SHUTTER ###
-                        # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                        # time.sleep(0.5) ## short delay between Open Shutter and Measure
-                        self.Shutter_Open()
-                        
-                        ##!!! ADD while-loop?
-                        qApp.processEvents()
-                    
-                        ##### CLOSE SHUTTER #####
-                        # time.sleep(0.5) ## short delay between Measure and Close Shutter
-                        # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-                        self.Shutter_Close()
-                        #######
-                
-                    elif (self.FixedNrRBtn.isChecked()):
-                        for i in range(l_NrOfScans):
-                            avs_cb = ava.AVS_MeasureCallbackFunc(self.measure_cb) # (defined above)
-                            l_Res = ava.AVS_MeasureCallback(globals.dev_handle, avs_cb, 1) ##!!! #scans here should be 1
-                            print(f"======FixedNrRBtn======\nglobals.m_Measurements: {globals.m_Measurements}\n======")
-                            
-                            globals.dataready = False
-                            print(f"======FixedNrRBtn\nglobals.dataready: {globals.dataready}\n======")
-		
-                        ### OPEN SHUTTER ###
-                            # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                            # time.sleep(0.5) ## short delay between Open Shutter and Measure
-                            self.Shutter_Open()
-                        
-                            while (globals.dataready == False):
-                                # print(f"===on_StartMeasBtn_clicked\n======l_Res: {l_Res}")
-                                # print(f"globals.NrScanned: {globals.NrScanned}")
-                                time.sleep(0.001)
-                                qApp.processEvents()
-                                # print(f"globals.dataready: {globals.dataready}")
-                        
-                        ######## MY WAY ########
-                            # qApp.processEvents() ## qApp is from PyQt5
-                            ##!!! NEED TO WAIT WHILE MEASUREMENT IS HAPPENING
-                            ##!!! PUT IT IN A FUNCTION??
-                        ##############################
-                            ##!!! MAYBE CHANGE TO USING AVS_PollScan()
-                                
-                        # ########## AVASPEC WAY ##########
-                            # while globals.m_Measurements <= l_NrOfScans:
-                            #     print(f"===\nFixedNrRBtn while-loop \nglobals.m_Measurements: {globals.m_Measurements}\n===")
-
-                            #     time.sleep(0.001)
-                            #     qApp.processEvents() ## qApp is from PyQt5
-                        ##############################
-                            print("Measurement acquisition finished")
-
-                        #######################
-                        # ##### CLOSE SHUTTER #####
-                            # time.sleep(0.5) ## short delay between Open Shutter and Measure
-                            # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-                            self.Shutter_Close()
-                            
-                            if globals.m_Measurements != l_NrOfScans:
-                                print(f"Waiting for {l_interval} s")
-                                time.sleep(l_interval)
-
-                            # time.sleep(l_interval) ## interval between Close Shutter and Open Shutter
-                            ##!!! TURN INTO: 
-                                # for b in range(int(l_interval)):
-                                #     time.sleep(1)
-                                #     if self.qy_cancelled == True:
-                                #         break
-                        print("=== FixedNrRBtn finished ===")
-
-                #######
-                    else:        
-                        if self.ContinuousRBtn.isChecked():
-                            ### OPEN SHUTTER ###
-                            # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-                            # time.sleep(0.5) ## short delay between Open Shutter and Measure
-                            self.Shutter_Open()
-
-                            # while True: 
-                            while globals.m_Measurements <= l_NrOfScans:
-
-                                time.sleep(0.001)
-                                qApp.processEvents()
-                                ##!!! does not go well: somehow the first acquisition is fine, but the subsequent
-                                ## ones are lower Abs...
-
-                            # ##### CLOSE SHUTTER #####
-                            self.Shutter_Close()
-                            # time.sleep(0.5) ## short delay between Open Shutter and Measure
-                            # ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-                            # time.sleep(0.5) ## delay between Close Shutter and Open Shutter
-
-            self.StartMeasBtn.setEnabled(True) 
-            self.StopMeasBtn.setEnabled(False)
-            return
+        self.StopMeasBtn.setEnabled(False)
+        return
 
     @pyqtSlot()
     def on_StopMeasBtn_clicked(self): 
-        ret = ava.AVS_StopMeasure(globals.dev_handle)
+        # ret = ava.AVS_StopMeasure(globals.dev_handle)
+        print("=== StopMeasBtn clicked ===")
+        self.cancel.emit()
+        time.sleep(1)
         self.StartMeasBtn.setEnabled(True)
         self.timer.stop()
+        return
+
+    @pyqtSlot()
+    def cancel_meas(self):
+        ret = ava.AVS_StopMeasure(globals.dev_handle)
+        self.cancelled = True
         return
 
     @pyqtSlot()
@@ -1234,7 +1103,7 @@ class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
         self.NrMeasEdt.setText("10") ## default nr. measurements
         self.Interval.setText("10") # default interval in seconds
         
-        globals.filename = "tests/20250910/TEST"
+        globals.filename = "tests/20250923/TEST"
         print(f"DefaultSettings === globals.filename: {globals.filename}")
         
     def DisconnectGui(self):
