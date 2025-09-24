@@ -10,7 +10,7 @@ IMPORTANT NOTES:
 - I copied and renamed plot_mpl.py to plot.py, in order for the script to work with matplotlib
     (the original had plot_qwt.py as plot.py, for which a module named 'PyQt5.Qwt' is neeed)
 - this file (PyQt5_fulldemo.pyw) contains the definitions and functions that are linked to the GUI objects
-- the file "qtdemo.py" contains the code that builds the GUI: it was created from qtdemo.ui
+- the file "MainWindow.py" contains the code that builds the GUI: it was created from MainWindow.ui
     -- the function "connectSlotsByName" connects signals to slots according to a simple naming convention
         --- https://riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#connecting-slots-by-name
         --- "Signal" to on_"Slot"_valueChanged (works apparently for _clicked as well)
@@ -19,8 +19,8 @@ IMPORTANT NOTES:
 
 TO DO/ADD:
 [DONE] Shutter control: OPEN-MEASURE-CLOSE 
-[] Shutter control over multiple measurements (user-input)
-[] Add parameters: Interval (s); Number of Cycles; ...
+[DONE] Shutter control over multiple measurements (user-input)
+[DONE] Add parameters: Interval (s); Number of Cycles; ...
 
 [DONE] Add "Dynamic Dark Correction"
     => already done: measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
@@ -30,8 +30,8 @@ TO DO/ADD:
     - [DONE] Ask Avantes: need the .py source code of the Qt_Demo_SLS compiled programme => does not exist...
     - [DONE] Check the C++ code for inspiration and apply AVS_SuppressStrayLight in .py
 
-[] "Record Reference" button that stores reference data (as np array) to be used here as well as saves it as a .csv file
-[] "Record Dark" button that stores dark data and creates a dark-corrected Intensity spectrum by subtraction
+[DONE] "Record Reference" button that stores reference data (as np array) to be used here
+[DONE] "Record Dark" button that stores dark data and creates a dark-corrected Intensity spectrum by subtraction
 [] Absorbance Mode: requires recording first a Reference Spectrum
 [] Save spectra: Intensity and Absorbance separately
 [] Add option to choose Reference data (from file) for current measurement
@@ -71,7 +71,7 @@ from PyQt5.QtWidgets import (QMainWindow, QAbstractItemView, QTableWidgetItem,
 
 import avaspec as ava
 import globals
-from UIs import qtdemo
+from UIs import MainWindow
 import analog_io_demo
 import digital_io_demo
 import eeprom_demo
@@ -114,7 +114,7 @@ class Worker(QObject):
         self.finished.emit()
         return
 
-class QtdemoClass(QMainWindow, qtdemo.Ui_QtdemoClass):
+class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     timer = QTimer() 
     SPECTR_LIST_COLUMN_COUNT = 5
     newdata = pyqtSignal(int, int) ## define new signal as a class attribute # (int,int) for callback
@@ -1112,7 +1112,7 @@ def main():
     app.setStyleSheet("QWidget{font-size:10px}")
     app.lastWindowClosed.connect(app.quit)
     app.setApplicationName("PyQt5 full demo")
-    form = QtdemoClass()
+    form = MainWindow()
     form.show()
     app.exec_()
 
