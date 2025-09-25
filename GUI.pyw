@@ -54,15 +54,14 @@ Improve code:
 [DONE] Remove * imports (convert to regular "full" imports)
 
 """
-#!/usr/bin/env python3
-# from ast import Str ## not used, but should be replaced by ast.Constant
 import inspect
-# import os
-# import platform
-
 import sys
 import ctypes
 import time
+
+import numpy as np
+import pandas as pd
+from math import log10
 
 from PyQt5.QtCore import (QTimer, pyqtSignal, pyqtSlot, QDateTime, Qt, 
                           QObject, QThread)
@@ -75,23 +74,17 @@ from UIs import MainWindow
 import analog_io_demo
 import digital_io_demo
 import eeprom_demo
+import tools.settings as Settings
+import tools.LED_control as LEDControl
 
 ##############################
-######### ADDED BY ME ########
-##############################
-import numpy as np
-import pandas as pd
-from math import log10
-
 #### DEMO MODE ###
 # MODE = "DEMO"
 MODE = "EXP"
-##############################
+
+Settings.MODE_LED = "TEST"
 
 ##############################
-########!!! TO DO ########
-##############################
-
 ######## add to globals.py
 SHUTTER_OPEN = 1 ## value to open shutter
 SHUTTER_CLOSE = 0 ## value to close shutter
@@ -121,7 +114,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         ## is used below in __init__
     cancel = pyqtSignal()
     cancelled = False
-
+    
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
         self.setupUi(self)
@@ -174,7 +167,34 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.cancel.connect(self.cancel_meas)
         self.DisableGraphChk.stateChanged.connect(self.on_DisableGraphChk_stateChanged)
         ava.AVS_Done()
+        
     
+        ###########################################
+        #### LED Control ####
+        self.selected_option = None
+        self.percentage = 0 # start with 0%
+        # Settings.twelvebit_max_thisLED = None
+        # Settings.twelvebit_adjusted = None
+        self.current = 0
+
+        #### drop-down menu ####
+        self.DropDownBox_LEDs.addItems(list(Settings.MaxCurrents.keys()))
+        self.DropDownBox_LEDs.currentIndexChanged.connect(self.update_dropdown)
+
+        self.LEDPercentageEdt.setText(str(self.percentage)) # 
+        self.LEDPercentageEdt.textChanged.connect(self.update_percentage)
+
+        #### slide bar ####
+        self.horizontalSlider.setMinimum(0)
+        self.horizontalSlider.setMaximum(100)
+        self.horizontalSlider.setValue(self.percentage)
+        self.horizontalSlider.valueChanged.connect(self.update_slider)
+
+        LEDControl.initialise_Arduino(Settings.MODE_LED) ## start communication with Arduino
+        self.update_dropdown() # Initial calculation
+        self.on_LED_off_manual_clicked() # extra caution
+    
+    ###########################################
     ###########################################
     @pyqtSlot()
 #   if you leave out the @pyqtSlot() line, you will also get an extra signal!
@@ -631,6 +651,41 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.cancelled = True
         return
 
+    ###########################################################################
+    ###########################################################################
+
+    @pyqtSlot()
+    def on_SetLEDsettings_clicked(self):
+        self.update_label_CurrentCurrent()
+        self.update_label_CurrentPercentage()
+
+    @pyqtSlot()
+    def on_LED_on_manual_clicked(self):
+        msg = QMessageBox()
+        msg.setWindowTitle("Please Confirm")
+        msg.setText("Are you sure you want to turn ON the LED?")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.buttonClicked.connect(self.turnLED_ON)
+        msg.exec_() # Execute the dialog
+
+    def turnLED_ON(self, i):
+        if i.text() == "&Yes":
+            if Settings.twelvebit_adjusted is None:
+                QMessageBox.warning(self, "Error", "Wrong input percentage")
+                return
+
+            LEDControl.turnLED_ON()
+        else:
+            LEDControl.turnLED_OFF()
+        self.update_label_LEDstatus()
+
+    @pyqtSlot()
+    def on_LED_off_manual_clicked(self):
+        LEDControl.turnLED_OFF()
+        self.update_label_LEDstatus()
+
+    ###########################################################################
+    ###########################################################################
     @pyqtSlot()
     def update_plot(self):
         if (self.DisableGraphChk.isChecked() == False):
@@ -1066,7 +1121,57 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StopMeasBtn.setEnabled(s == "USB_IN_USE_BY_APPLICATION" or s == "ETH_IN_USE_BY_APPLICATION")
         self.ResetSpectrometerBtn.setEnabled(s == "USB_IN_USE_BY_APPLICATION" or s == "ETH_IN_USE_BY_APPLICATION")
         return 
+    
+    ###########################################################################
+    ############################ LED Control ##################################
+    ###########################################################################
 
+    def update_dropdown(self):
+        self.selected_option = self.DropDownBox_LEDs.currentText()
+        self.MaxCurrent, Settings.twelvebit_max_thisLED = LEDControl.AdjustMaxCurrent(self.selected_option) ## use currently selected LED
+        self.update_label_MaxCurrent()
+
+    def update_label_MaxCurrent(self):
+        self.Label_MaxCurrent.setText(str(self.MaxCurrent))
+
+    def update_slider(self):
+        self.percentage = self.horizontalSlider.value()
+        self.LEDPercentageEdt.setText(str(self.percentage)) # 
+        self.update_calculation()
+
+    def update_percentage(self):
+        if self.LEDPercentageEdt.text() == '':
+            self.current = ''
+            Settings.twelvebit_adjusted = None
+        elif 0 <= int(self.LEDPercentageEdt.text()) <= 100:
+            self.percentage = int(self.LEDPercentageEdt.text())  # Convert the input to an integer
+            self.horizontalSlider.setValue(self.percentage)
+            self.update_calculation()
+        else:
+            self.current = "Wrong Percentage"
+            Settings.twelvebit_adjusted = None
+
+    def update_calculation(self):
+        Settings.twelvebit_adjusted = str(LEDControl.percent_to_12bit(Settings.twelvebit_max_thisLED,
+                                                                      int(self.percentage)))
+        print(f"update_calculation twelvebit_adjusted: {Settings.twelvebit_adjusted}")
+        self.current = round((int(self.percentage) / 100) * self.MaxCurrent)
+
+    def update_label_CurrentCurrent(self):
+        if self.current is None:
+            self.current = ''
+        self.Label_CurrentCurrent.setText(str(self.current))
+    
+    def update_label_CurrentPercentage(self):
+        self.Label_CurrentPercentage.setText(str(self.percentage))
+    
+    def update_label_LEDstatus(self):
+        self.LED_DisplayStatus.setText(Settings.LEDstatus)
+
+    ###########################################################################
+    ###########################################################################
+    ###########################################################################
+    
     @pyqtSlot()
     def on_DeactivateBtn_clicked(self):
         ret = ava.AVS_Deactivate(globals.dev_handle)
@@ -1111,7 +1216,7 @@ def main():
     app = QApplication(sys.argv)
     app.setStyleSheet("QWidget{font-size:10px}")
     app.lastWindowClosed.connect(app.quit)
-    app.setApplicationName("PyQt5 full demo")
+    app.setApplicationName("fibirr-GUI")
     form = MainWindow()
     form.show()
     app.exec_()
