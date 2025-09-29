@@ -145,7 +145,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.ConnectEthernetRBtn.setChecked(False)
         ###########################################
         self.SingleRBtn.setChecked(True)
-        self.FixedNrRBtn.setChecked(False)
+        self.KineticsRBtn.setChecked(False)
         self.ContinuousRBtn.setChecked(False)
         self.IrrKinRBtn.setChecked(False)
         self.Mode_Scope.setChecked(True)
@@ -171,7 +171,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     
         ###########################################
         #### LED Control ####
-        self.selected_option = None
+        self.selected_LED = None
         self.percentage = 0 # start with 0%
         # Settings.twelvebit_max_thisLED = None
         # Settings.twelvebit_adjusted = None
@@ -190,7 +190,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.horizontalSlider.setValue(self.percentage)
         self.horizontalSlider.valueChanged.connect(self.update_slider)
 
-        LEDControl.initialise_Arduino(Settings.MODE_LED) ## start communication with Arduino
+        LEDControl.initialise_Arduino() ## start communication with Arduino
         self.update_dropdown() # Initial calculation
         self.on_LED_off_manual_clicked() # extra caution
     
@@ -421,7 +421,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         elif MODE == "EXP":
             ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
             ###########################################
-            l_NrOfScans = int(1) # 1 scan
+            globals.l_NrOfScans = int(1) # 1 scan
             ###########################################
             if (self.DarkMeasBtn.isEnabled()):
                 print ("on_DarkMeasBtn_clicked === DarkMeasBtn enabled")
@@ -470,7 +470,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         elif MODE == "EXP":
             ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
             ###########################################
-            l_NrOfScans = int(1) # 1 scan
+            globals.l_NrOfScans = int(1) # 1 scan
             ###########################################
             if (self.RefMeasBtn.isEnabled()):
                 print ("on_RefMeasBtn_clicked === RefMeasBtn enabled")
@@ -484,9 +484,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.RefMeasBtn.setEnabled(False)
             # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
             
-            l_NrOfScans = int(1)
-
-            print(f"====== RefMeasBtn ======\nl_NrOfScans: {l_NrOfScans}")
+            print(f"====== RefMeasBtn ======\nglobals.l_NrOfScans: {globals.l_NrOfScans}")
             self.One_Measurement()
             
             self.RefMeasBtn.setEnabled(True)
@@ -514,6 +512,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
         ###!!! in case of Absorbance Mode: add an if-check for the Ref having been measured
         ## if (self.AbsorbanceMode.isChecked()):
+            ## if Ref is None:
+                ## QMessageBox.warning(self, "Error", "Wrong input percentage")
+
+                
             
         ######################################################################
         ### added QThread functionality ###
@@ -531,30 +533,27 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.worker_meas = Worker() # this is a worker that will tell when the job is done
         
         if (self.SingleRBtn.isChecked()): ## added
-            ## globals.MeasurementType = "Single" ##!!! ADD
+            ## globals.MeasurementType = "Single" ##!!! ADD if needed
 
-            l_NrOfScans = int(1)
-            self.worker_meas.func = self.Single_Measurement #here the job of the worker is defined. it should only be one function
-        if (self.FixedNrRBtn.isChecked()):
+            globals.l_NrOfScans = int(1)
+            self.worker_meas.func = self.Single_Measurement #here the job of the worker is defined
+        if (self.KineticsRBtn.isChecked()):
             globals.l_NrOfScans = int(self.NrMeasEdt.text())
             globals.l_interval = int(self.Interval.text())
-            self.worker_meas.func = self.Kinetic_Measurement #here the job of the worker is defined. it should only be one function
+            self.worker_meas.func = self.Kinetics_Measurement #here the job of the worker is defined
+            ##!!! TURN OFF LED AND SHOW MESSAGE
         if (self.ContinuousRBtn.isChecked()):
             if self.NrMeasEdt.text() == "0":
-                l_NrOfScans = -1
+                globals.l_NrOfScans = -1
             else:
-                l_NrOfScans = int(self.NrMeasEdt.text())
-            
+                globals.l_NrOfScans = int(self.NrMeasEdt.text())
             ##!!! ADD FUNCTIONALITY
 
-            
         if (self.IrrKinRBtn.isChecked()):
-            l_NrOfScans = int(self.NrMeasEdt.text())
-            l_interval = int(self.Interval.text())
-            
-            ##!!! ADD FUNCTIONALITY
-
-
+            globals.l_NrOfScans = int(self.NrMeasEdt.text())
+            globals.l_interval = int(self.Interval.text())
+            self.worker_meas.func = self.IrradiationKinetics_Measurement #here the job of the worker is defined. 
+        #######################################################################
         self.worker_meas.moveToThread(self.thread_meas) #the workers job is moved from the frontend to the thread in backend
         self.thread_meas.started.connect(self.worker_meas.run) # when the thread is started, the worker runs
         self.worker_meas.finished.connect(self.thread_meas.quit) # when the worker is finished, the thread is quit
@@ -610,27 +609,62 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         return
 
     @pyqtSlot()
-    def Kinetic_Measurement(self):
-        print("=== Kinetic_Measurement ===")
+    def Kinetics_Measurement(self):
+        print("=== Kinetics_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
         nummeas = globals.l_NrOfScans
         globals.m_Measurements = 0
         delay = globals.l_interval
         self.cancelled = False
-
+        
+        print(f"Kinetics_Measurement===nummeas: {nummeas}")
         for i in range(nummeas):
             if self.cancelled == True: ## break loop if Stop button was pressed
                 print("Stopped Kinetic Measurement")
                 self.Shutter_Close()
                 return
             else:
-                print(f"for-loop===nummeas: {nummeas}")
                 self.One_Measurement()
                 if globals.m_Measurements != nummeas:
                     print(f"Waiting for {delay} s")
-                    time.sleep(delay)
+                    for t in range(delay):
+                        time.sleep(1)
+                        if self.cancelled == True:
+                            break
                     print(f"Delay {delay} s done")
         print(f"Kinetic measurement done ({nummeas} measurements)")
+        self.StartMeasBtn.setEnabled(True)
+        self.StopMeasBtn.setEnabled(False)
+        return
+
+    @pyqtSlot()
+    def IrradiationKinetics_Measurement(self):
+        print("=== IrradiationKinetics_Measurement ===")
+        self.StartMeasBtn.setEnabled(False)
+        nummeas = globals.l_NrOfScans
+        globals.m_Measurements = 0
+        delay = globals.l_interval
+        self.cancelled = False
+        print(f"IrradiationKinetics\n===nummeas: {nummeas}\n===LED {self.selected_LED}, {self.current} mA ({self.percentage} %)")
+
+        for i in range(nummeas):
+            if self.cancelled == True: ## break loop if Stop button was pressed
+                print("Stopped IrradiationKinetics Measurement")
+                self.Shutter_Close()
+                self.turnLED_OFF()
+                return
+            else:
+                self.One_Measurement() ## do one measurement
+                self.turnLED_ON() ## turn on LED
+                if globals.m_Measurements != nummeas:
+                    print(f"Waiting for {delay} s")
+                    for t in range(delay):
+                        time.sleep(1)
+                        if self.cancelled == True:
+                            break
+                    print(f"Delay {delay} s done")
+                    self.turnLED_OFF() ## turn off LED
+        print(f"Irradiation Kinetics measurement done ({nummeas} measurements)")
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
         return
@@ -665,22 +699,27 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         msg.setWindowTitle("Please Confirm")
         msg.setText("Are you sure you want to turn ON the LED?")
         msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg.buttonClicked.connect(self.turnLED_ON)
+        msg.buttonClicked.connect(self.LED_on_manual_warning)
         msg.exec_() # Execute the dialog
 
-    def turnLED_ON(self, i):
+    @pyqtSlot()
+    def on_LED_off_manual_clicked(self):
+        self.turnLED_OFF()
+
+    def LED_on_manual_warning(self, i):
         if i.text() == "&Yes":
             if Settings.twelvebit_adjusted is None:
                 QMessageBox.warning(self, "Error", "Wrong input percentage")
                 return
-
-            LEDControl.turnLED_ON()
+            self.turnLED_ON()
         else:
-            LEDControl.turnLED_OFF()
+            self.turnLED_OFF()
+
+    def turnLED_ON(self):
+        LEDControl.turnLED_ON()
         self.update_label_LEDstatus()
 
-    @pyqtSlot()
-    def on_LED_off_manual_clicked(self):
+    def turnLED_OFF(self):
         LEDControl.turnLED_OFF()
         self.update_label_LEDstatus()
 
@@ -874,7 +913,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         self.TimeSinceStartEdt.setText("{0:d}".format(l_Seconds))
                         self.NrScansEdt.setText("{0:d}".format(globals.m_Measurements))
                         ###########################################
-                        if (self.FixedNrRBtn.isChecked()):
+                        if (self.KineticsRBtn.isChecked()):
                            self.StartMeasBtn.setEnabled(int(self.NrMeasEdt.text()) == globals.m_Measurements) 
                                ## enable Start Measurement button when the user-defined #meas (NrMeasEdt) is equal to
                                    ## the number of measured spectra (globals.m_Measurements)
@@ -1127,8 +1166,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     ###########################################################################
 
     def update_dropdown(self):
-        self.selected_option = self.DropDownBox_LEDs.currentText()
-        self.MaxCurrent, Settings.twelvebit_max_thisLED = LEDControl.AdjustMaxCurrent(self.selected_option) ## use currently selected LED
+        self.selected_LED = self.DropDownBox_LEDs.currentText()
+        self.MaxCurrent, Settings.twelvebit_max_thisLED = LEDControl.AdjustMaxCurrent(self.selected_LED) ## use currently selected LED
         self.update_label_MaxCurrent()
 
     def update_label_MaxCurrent(self):

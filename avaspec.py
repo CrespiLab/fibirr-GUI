@@ -518,7 +518,7 @@ def AVS_SuppressStrayLight(handle, a_MultiFactor, a_pSrcSpectrum):
     # paramflags = (1, "handle",), (1, "a_MultiFactor",), (2, "a_pSrcSpectrum"), (2, "a_pDestSpectrum"), 
     # AVS_SuppressStrayLight = prototype(("AVS_SuppressStrayLight", lib), paramflags)
     
-    print(f"globals.pixels: {globals.pixels}")
+    # print(f"globals.pixels: {globals.pixels}")
     NUM_PIXELS = globals.pixels
     dest_array = (ctypes.c_double * NUM_PIXELS)()
     

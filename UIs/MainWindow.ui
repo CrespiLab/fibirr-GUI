@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1347</width>
-    <height>1008</height>
+    <width>1238</width>
+    <height>949</height>
    </rect>
   </property>
   <property name="font">
@@ -443,7 +443,7 @@
        <property name="title">
         <string>Acquisition Mode</string>
        </property>
-       <widget class="QRadioButton" name="FixedNrRBtn">
+       <widget class="QRadioButton" name="KineticsRBtn">
         <property name="geometry">
          <rect>
           <x>10</x>
@@ -453,7 +453,7 @@
          </rect>
         </property>
         <property name="text">
-         <string>Kinetic (shutter-controlled)</string>
+         <string>Kinetics (shutter-controlled)</string>
         </property>
        </widget>
        <widget class="QRadioButton" name="ContinuousRBtn">
@@ -479,7 +479,7 @@
          </rect>
         </property>
         <property name="text">
-         <string>Irradiation Kinetics (TO DO)</string>
+         <string>Irradiation Kinetics</string>
         </property>
        </widget>
        <widget class="QLineEdit" name="NrMeasEdt">
@@ -822,7 +822,7 @@
          </rect>
         </property>
         <property name="title">
-         <string>IrrKin Measurement Settings</string>
+         <string>Irradiation Kinetics Settings</string>
         </property>
         <widget class="QLabel" name="label_9">
          <property name="geometry">
@@ -1507,7 +1507,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1347</width>
+     <width>1238</width>
      <height>21</height>
     </rect>
    </property>
@@ -1571,7 +1571,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
  </buttongroups>
 </ui>

@@ -26,30 +26,27 @@ import tools.settings as Settings
 
 ########################################################
 
-def write_read(arduino, x, MODE):
-    if MODE == "TEST":
-        print(f'==== TEST MODE ====\ntwelvebit_adjusted: {x}')
-    
-    elif MODE == "FORREAL":
-
+def write_read(arduino, x):
+    if Settings.MODE_LED == "TEST":
+        # print(f'==== TEST MODE ====\ntwelvebit_adjusted: {x}')
+        print('==== TEST MODE ====')
+    else:
         arduino.write(bytes(x, 'utf-8'))
         time.sleep(0.05)
         data = arduino.readline()
      	# print(f"data:{data}")
         return data
-    else:
-        print("wrong value for MODE")
 
 def turnLED_ON():
-    print(f"twelvebit_adjusted: {Settings.twelvebit_adjusted}")
-    write_read(Settings.arduino, Settings.twelvebit_adjusted, Settings.MODE_LED) ## send ON signal to Arduino (percentage-adjusted)
-    print("Turned ON the LED") 
+    # print(f"twelvebit_adjusted: {Settings.twelvebit_adjusted}")
+    write_read(Settings.arduino, Settings.twelvebit_adjusted) ## send ON signal to Arduino (percentage-adjusted)
     Settings.LEDstatus = "ON"
+    print(f"Turned {Settings.LEDstatus} the LED")
         
 def turnLED_OFF():
-    write_read(Settings.arduino, "0", Settings.MODE_LED) ## send OFF signal to Arduino
-    print("Turned OFF the LED")
+    write_read(Settings.arduino, "0") ## send OFF signal to Arduino
     Settings.LEDstatus = "OFF"
+    print(f"Turned {Settings.LEDstatus} the LED")
 
 def SetToZero_twelvebitadjusted():
     Settings.twelvebit_adjusted = None
@@ -58,15 +55,13 @@ def SetToZero_twelvebitadjusted():
 ########################################################
 ########################################################
 
-def initialise_Arduino(MODE):
+def initialise_Arduino():
     """ Start COM port communication with Arduino (unless TEST MODE is on) """
-    if MODE == "TEST":
+    if Settings.MODE_LED == "TEST":
         pass
-    elif MODE == "FORREAL":
+    else:
         Settings.arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1) ## fibirr laptop
         time.sleep(2) ## need to wait a bit after opening the communication
-    else:
-        print("wrong value for MODE")
 
 def AdjustMaxCurrent(LED):
     MaxCurrent = Settings.MaxCurrents[LED]
