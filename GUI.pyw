@@ -32,13 +32,13 @@ TO DO/ADD:
 
 [DONE] "Record Reference" button that stores reference data (as np array) to be used here
 [DONE] "Record Dark" button that stores dark data and creates a dark-corrected Intensity spectrum by subtraction
-[] Absorbance Mode: requires recording first a Reference Spectrum
-[] Save spectra: Intensity and Absorbance separately
+[DONE] Absorbance Mode
+[DONE] Save spectra: Intensity and Absorbance separately
 [] Add option to choose Reference data (from file) for current measurement
 ###
-[] Measurement mode: Irradiation Kinetics
-    - [] Need to add Arduino control for LED driver
-[] Add MOD mode feature (pop-up window)
+[DONE] Measurement mode: Irradiation Kinetics
+    - [DONE] Need to add Arduino control for LED driver
+[DONE] Add MOD mode feature => LED Control
 [] Measurement mode: Irr followed by non-Irr Kinetics (to measure irr and then thermal back-relaxation)
 ###
 [] Trigger mode: External (Arduino-controlled)
@@ -54,7 +54,7 @@ Improve code:
 [DONE] Remove * imports (convert to regular "full" imports)
 
 """
-import inspect
+# import inspect
 import sys
 import ctypes
 import time
@@ -82,7 +82,7 @@ import tools.LED_control as LEDControl
 # MODE = "DEMO"
 MODE = "EXP"
 
-Settings.MODE_LED = "TEST"
+# Settings.MODE_LED = "TEST"
 
 ##############################
 ######## add to globals.py
@@ -118,6 +118,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
         self.setupUi(self)
+        #self.setWindowIcon() ##!!! add icon here or in Designer
+        self.showMaximized()
+        
         #self.PreScanChk.hide()
         #self.SetNirSensitivityRgrp.hide()
         self.setStatusBar(self.statusBar)
@@ -168,7 +171,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.DisableGraphChk.stateChanged.connect(self.on_DisableGraphChk_stateChanged)
         ava.AVS_Done()
         
-    
+        self.delay_acq = 0 ## time that acquisition takes
         ###########################################
         #### LED Control ####
         self.selected_LED = None
@@ -176,6 +179,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         # Settings.twelvebit_max_thisLED = None
         # Settings.twelvebit_adjusted = None
         self.current = 0
+        
+        self.delay_beforeLED_ON = 0 ## delay (ms) before turning on LED
+        self.delay_afterLED_OFF = 0 ## delay (ms) after turning off LED
 
         #### drop-down menu ####
         self.DropDownBox_LEDs.addItems(list(Settings.MaxCurrents.keys()))
@@ -190,7 +196,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.horizontalSlider.setValue(self.percentage)
         self.horizontalSlider.valueChanged.connect(self.update_slider)
 
+        ##!!! ADD: 
+        ## try:
         LEDControl.initialise_Arduino() ## start communication with Arduino
+        ## except:
+        
         self.update_dropdown() # Initial calculation
         self.on_LED_off_manual_clicked() # extra caution
     
@@ -370,21 +380,19 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         self.measconfig.m_SaturationDetection,
                         self.measconfig.m_Trigger_m_Mode)
 
-##!!! TEST AND FIND OPTIMAL DELAY TIME
+##!!! TEST AND FIND OPTIMAL DELAY TIME (see DefaultSettings)
     def Shutter_Open(self):
         ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-        delay_s = 0.5
-        time.sleep(delay_s) ## short delay between Open Shutter and Measure
+        time.sleep(self.delay_afterShutter_Open) ## short delay between Open Shutter and Measure
         
-        print("shutter open")
+        print(">> Shutter_Open <<")
 
     def Shutter_Close(self):
         # time.sleep(delay_b) ##!!! small delay necessary maybe, but ideally command should wait for acquisition to be finished
         ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-        delay_s = 0.1
-        time.sleep(delay_s) ## short delay between Measure and Close Shutter
+        time.sleep(self.delay_afterShutter_Close) ## short delay between Measure and Close Shutter
         
-        print("shutter closed")
+        print(">> Shutter Closed <<")
 
     @pyqtSlot()
     def on_SettingsBtn_clicked(self):
@@ -434,9 +442,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 self.NrFailuresEdt.setText("{0:d}".format(0))
             self.DarkMeasBtn.setEnabled(False) 
 
-            globals.m_Measurements = 0
             timestamp = 0
-            print(f"globals.m_Measurements: {globals.m_Measurements}")
+            # print(f"globals.m_Measurements: {globals.m_Measurements}")
 
             ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
             globals.dataready = False
@@ -448,8 +455,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 time.sleep(0.001)
             
             if globals.dataready == True:
-                timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
-                globals.spectraldata = globals.spectraldata[:globals.pixels]
+                # timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
+                # globals.spectraldata = globals.spectraldata[:globals.pixels]
                 self.newdata.emit(globals.dev_handle, ret)
                 time.sleep(self.delay_acq)
 
@@ -515,7 +522,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             ## if Ref is None:
                 ## QMessageBox.warning(self, "Error", "Wrong input percentage")
 
-                
+        print(f"globals.delays_total: {globals.delays_total}")
             
         ######################################################################
         ### added QThread functionality ###
@@ -533,16 +540,25 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.worker_meas = Worker() # this is a worker that will tell when the job is done
         
         if (self.SingleRBtn.isChecked()): ## added
-            ## globals.MeasurementType = "Single" ##!!! ADD if needed
+            globals.AcquisitionMode = "Single" 
 
             globals.l_NrOfScans = int(1)
             self.worker_meas.func = self.Single_Measurement #here the job of the worker is defined
+
         if (self.KineticsRBtn.isChecked()):
+            globals.AcquisitionMode = "Kinetics"
+            
+            ##!!! ADD WARNING:
+                ## if l_interval < 2
+                ## choose Continuous Mode
+
             globals.l_NrOfScans = int(self.NrMeasEdt.text())
             globals.l_interval = int(self.Interval.text())
             self.worker_meas.func = self.Kinetics_Measurement #here the job of the worker is defined
             ##!!! TURN OFF LED AND SHOW MESSAGE
+
         if (self.ContinuousRBtn.isChecked()):
+            globals.AcquisitionMode = "Continuous" 
             if self.NrMeasEdt.text() == "0":
                 globals.l_NrOfScans = -1
             else:
@@ -550,9 +566,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             ##!!! ADD FUNCTIONALITY
 
         if (self.IrrKinRBtn.isChecked()):
+            ##!!! ADD: if LED is not chosen or current is not chosen: stop
+            
+            globals.AcquisitionMode = "IrradiationKinetics" 
+            
             globals.l_NrOfScans = int(self.NrMeasEdt.text())
             globals.l_interval = int(self.Interval.text())
             self.worker_meas.func = self.IrradiationKinetics_Measurement #here the job of the worker is defined. 
+
         #######################################################################
         self.worker_meas.moveToThread(self.thread_meas) #the workers job is moved from the frontend to the thread in backend
         self.thread_meas.started.connect(self.worker_meas.run) # when the thread is started, the worker runs
@@ -564,13 +585,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         print("Finished thread setup.")
         return
 
+##!!! maybe make a function for the dark measurement
+    # def Dark_Measurement(self):
+        
+
     @pyqtSlot()
     def One_Measurement(self):
-        ##!!! COMBINE so that Dark and Ref also use this function
         print("=== One_Measurement ===")
         ###########################################        
         timestamp = 0
-        print(f"globals.m_Measurements: {globals.m_Measurements}")
 
         ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
         globals.dataready = False
@@ -582,13 +605,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             time.sleep(0.001)
         
         if globals.dataready == True:
-            timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
-            globals.spectraldata = globals.spectraldata[:globals.pixels]
+            # timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
+            # globals.spectraldata = globals.spectraldata[:globals.pixels]
             self.newdata.emit(globals.dev_handle, ret)
             time.sleep(self.delay_acq)
         
         self.Shutter_Close()
         print("One Measurement done")
+        print(f"globals.m_Measurements: {globals.m_Measurements}")
         return
 
     @pyqtSlot()
@@ -614,10 +638,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StartMeasBtn.setEnabled(False)
         nummeas = globals.l_NrOfScans
         globals.m_Measurements = 0
-        delay = globals.l_interval
+        delay = int(globals.l_interval - globals.delays_total)
         self.cancelled = False
         
-        print(f"Kinetics_Measurement===nummeas: {nummeas}")
+        print(f"===nummeas: {nummeas}")
         for i in range(nummeas):
             if self.cancelled == True: ## break loop if Stop button was pressed
                 print("Stopped Kinetic Measurement")
@@ -643,20 +667,25 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StartMeasBtn.setEnabled(False)
         nummeas = globals.l_NrOfScans
         globals.m_Measurements = 0
-        delay = globals.l_interval
+        delay = int(globals.l_interval - globals.delays_total)
         self.cancelled = False
-        print(f"IrradiationKinetics\n===nummeas: {nummeas}\n===LED {self.selected_LED}, {self.current} mA ({self.percentage} %)")
+        print(f"===nummeas: {nummeas}\n===LED {self.selected_LED}, {self.current} mA ({self.percentage} %)")
+
+        ##!!! IMPORTANT:
+            ## log actual irradiation time
+            ## and have this be the time interval input by the user
 
         for i in range(nummeas):
+            print(f"i: {i}")
             if self.cancelled == True: ## break loop if Stop button was pressed
-                print("Stopped IrradiationKinetics Measurement")
+                print("Cancelled IrradiationKinetics Measurement")
                 self.Shutter_Close()
                 self.turnLED_OFF()
                 return
             else:
                 self.One_Measurement() ## do one measurement
-                self.turnLED_ON() ## turn on LED
                 if globals.m_Measurements != nummeas:
+                    self.turnLED_ON() ## turn on LED
                     print(f"Waiting for {delay} s")
                     for t in range(delay):
                         time.sleep(1)
@@ -665,6 +694,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                     print(f"Delay {delay} s done")
                     self.turnLED_OFF() ## turn off LED
         print(f"Irradiation Kinetics measurement done ({nummeas} measurements)")
+        
+        ##!!! ADD: SAVE LOG
+            ## generate log file meant for autoQY: timestamps of actual irradiation times
+        
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
         return
@@ -716,24 +749,30 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.turnLED_OFF()
 
     def turnLED_ON(self):
+        ##!!! ADDED DELAY
+        if not (self.StartMeasBtn.isEnabled()): ## if on-going measurement
+            time.sleep(self.delay_beforeLED_ON)
         LEDControl.turnLED_ON()
         self.update_label_LEDstatus()
 
     def turnLED_OFF(self):
         LEDControl.turnLED_OFF()
         self.update_label_LEDstatus()
+        if not (self.StartMeasBtn.isEnabled()): ## if on-going measurement
+            time.sleep(self.delay_afterLED_OFF)
+        ##!!! ADDED DELAY
 
     ###########################################################################
     ###########################################################################
     @pyqtSlot()
     def update_plot(self):
         if (self.DisableGraphChk.isChecked() == False):
-            self.plot.update_plot() ## plot.py/update_plot() uses the new data: globals.spectraldata
-        
-        ##!!! ADD HERE: UPDATE ABSORBANCE PLOT
-            ##### if (self.Mode_Absorbance.isChecked()):
-                
-            
+            if (self.Mode_Scope.isChecked()):
+                self.plot.update_plot() ## plot.py/update_plot
+            elif (self.Mode_Absorbance.isChecked()):
+                self.plot.update_absorbanceplot()
+            else:
+                QMessageBox.warning(self, "Error", "Something wrong with Measurement Mode")                
         return         
 
     @pyqtSlot()
@@ -757,13 +796,19 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
         '''
         
-        FileObject = filename+f"_{mode}_"+".csv"
+        ##!!! USE 
+        
+        FileObject = filename+f"_{mode}"+".csv"
         data_vstack = np.vstack((globals.wavelength,
                                      spectrum))
         data_transposed = np.transpose(data_vstack)
         xydata = pd.DataFrame(data_transposed,columns=["Wavelength (nm)","Pixel values"])
         xydata.to_csv(FileObject,index=False)
-        print(f"{mode} spectrum auto-saved as {FileObject}")
+        # print(f"{mode} spectrum auto-saved as {FileObject}")
+        
+        ##!!! ADD MESSAGE
+        ## self.statusBar.showMessage("blabla Spectrum auto-saved")
+
 
     @pyqtSlot(int, int)
     def handle_newdata(self, ldev_handle, lerror):
@@ -781,37 +826,27 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             if ((ldev_handle == globals.dev_handle) and (globals.pixels > 0)):
                 if (lerror == 0): # normal measurements
                     self.statusBar.showMessage("Meas.Status: success")
-                    print("=== handle_newdata ===")
                     try:
                         print(f"globals.dataready: {globals.dataready}")
                         globals.m_Measurements += 1
                         timestamp = 0
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
                         # ##################
-                        filename = globals.filename
-                        # print(f"handle_newdata === filename: {filename}")
-                        
+                        filename = globals.filename                        
                         ##################
                         if globals.MeasurementType == "Dark":
                             globals.DarkSpectrum_doublearray = globals.spectraldata
-                            # print(f"globals.DarkSpectrum_doublearray type: {type(globals.DarkSpectrum_doublearray)}")
                             globals.DarkSpectrum = globals.DarkSpectrum_doublearray[:globals.pixels]
-                            # print(f"globals.DarkSpectrum type: {type(globals.DarkSpectrum)}")
-                            # print(f"globals.DarkSpectrum length: {len(globals.DarkSpectrum)}")
                             ####
                             self.auto_save(filename, "Dark", globals.DarkSpectrum)
                             self.statusBar.showMessage("Dark Spectrum auto-saved") ## Message box added
                         elif globals.MeasurementType == "Ref":
                             globals.RefSpectrum_doublearray = globals.spectraldata
-                            # print(f"globals.RefSpectrum_doublearray type: {type(globals.RefSpectrum_doublearray)}")
                             globals.RefSpectrum = globals.RefSpectrum_doublearray[:globals.pixels]
-                            # print(f"globals.RefSpectrum type: {type(globals.RefSpectrum)}")
                             self.auto_save(filename, "Ref", globals.RefSpectrum)
+                            
                             #### Dark-Corrected ####
                             globals.RefSpectrum_DarkCorr = [globals.RefSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
-                            # print(f"globals.RefSpectrum_DarkCorr type: {type(globals.RefSpectrum_DarkCorr)}")
-                            # print(f"globals.RefSpectrum_DarkCorr length: {len(globals.RefSpectrum_DarkCorr)}")
-                            
                             self.auto_save(filename, "RefDarkCorr", globals.RefSpectrum_DarkCorr)
                             
                             #####################################
@@ -823,32 +858,21 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             '''
                             ArrayType = ctypes.c_double * 4096 ## ctypes array
                             globals.RefSpectrum_DarkCorr_doublearray = ArrayType(*globals.RefSpectrum_DarkCorr) ## convert list to ctypes array
-                            # print(f"globals.RefSpectrum_DarkCorr_doublearray type: {type(globals.RefSpectrum_DarkCorr_doublearray)}")
                             
                             SLSfactor = 1
                             ret_code, globals.RefSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
                                                               SLSfactor,
                                                               globals.RefSpectrum_DarkCorr_doublearray)
-                            # print(f"return code: {ret_code}")
-                            # print(f"globals.RefSpectrum_DarkSLSCorr_doublearray type: {type(globals.RefSpectrum_DarkSLSCorr_doublearray)}")
                             globals.RefSpectrum_DarkSLSCorr = list(globals.RefSpectrum_DarkSLSCorr_doublearray) # convert to list
-
-                            # print(f"globals.RefSpectrum_DarkSLSCorr type: {type(globals.RefSpectrum_DarkSLSCorr)}")
-                            # print(f"globals.RefSpectrum_DarkSLSCorr length: {len(globals.RefSpectrum_DarkSLSCorr)}")
-                            # print(f"globals.RefSpectrum_DarkSLSCorr:\n{globals.RefSpectrum_DarkSLSCorr}")
-
                             self.auto_save(filename, "RefDarkSLSCorr", globals.RefSpectrum_DarkSLSCorr)
+                            
 
                         elif globals.MeasurementType == "Measurement":
                             globals.ScopeSpectrum_doublearray = globals.spectraldata
-                            
                             globals.ScopeSpectrum = globals.ScopeSpectrum_doublearray[:globals.pixels]
-                            self.auto_save(filename, f"Int_{globals.m_Measurements}", globals.ScopeSpectrum)
                             
                             #### Dark Correction ####
                             globals.ScopeSpectrum_DarkCorr = [globals.ScopeSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
-                            # print(f"globals.ScopeSpectrum_DarkCorr type: {type(globals.ScopeSpectrum_DarkCorr)}")
-                            self.auto_save(filename, f"IntDarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
                             
                             #####################################
                             ############### SLS #################
@@ -861,21 +885,17 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             '''
                             ArrayType = ctypes.c_double * 4096 ## ctypes array
                             globals.ScopeSpectrum_DarkCorr_doublearray = ArrayType(*globals.ScopeSpectrum_DarkCorr) ## convert list to ctypes array
-                            # print(f"globals.ScopeSpectrum_DarkCorr_doublearray type: {type(globals.ScopeSpectrum_DarkCorr_doublearray)}")
 
                             ##!!! MAKE INTO A FUNCTION
                             SLSfactor = 1
                             ret_code, globals.ScopeSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
                                                               SLSfactor,
                                                               globals.ScopeSpectrum_DarkCorr_doublearray)
-                            # print(f"return code: {ret_code}")
-                            # print(f"globals.ScopeSpectrum_DarkSLSCorr_doublearray type: {type(globals.ScopeSpectrum_DarkSLSCorr_doublearray)}")
                             globals.ScopeSpectrum_DarkSLSCorr = list(globals.ScopeSpectrum_DarkSLSCorr_doublearray) # convert to list
-
-                            # print(f"globals.ScopeSpectrum_DarkSLSCorr type: {type(globals.ScopeSpectrum_DarkSLSCorr)}")
-                            # print(f"globals.ScopeSpectrum_DarkSLSCorr length: {len(globals.ScopeSpectrum_DarkSLSCorr)}")
-                            # print(f"globals.ScopeSpectrum_DarkSLSCorr:\n{globals.ScopeSpectrum_DarkSLSCorr}")
-                            self.auto_save(filename, f"IntDarkSLSCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkSLSCorr)
+                            
+                            self.auto_save(filename, f"{globals.AcquisitionMode}_Int_{globals.m_Measurements}", globals.ScopeSpectrum)
+                            self.auto_save(filename, f"{globals.AcquisitionMode}_IntDarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
+                            self.auto_save(filename, f"{globals.AcquisitionMode}_IntDarkSLSCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkSLSCorr)
                             
                             #####################################
                             ########## ABSORBANCE MODE ##########
@@ -884,7 +904,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                 print("Absorbance Mode")
                                 globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
                                 globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
-                                self.auto_save(filename, f"Abs_{globals.m_Measurements}", globals.AbsSpectrum)
+                                self.auto_save(filename, f"{globals.AcquisitionMode}_Abs_{globals.m_Measurements}", globals.AbsSpectrum)
 
                         #####################################
                         else:
@@ -920,7 +940,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         
                         self.update_plot() ## update plot
                     except:
-                        print("new data was not handled")
+                        print("new data was not handled") ##!!! add error output
                     return
                     
                     ######################################################
@@ -1103,6 +1123,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.AvgEdt.setText(f"{self.measconfig.m_NrAverages:0d}") ## default # averages
         
         self.delay_acq = (self.measconfig.m_IntegrationTime * self.measconfig.m_NrAverages)/1000 # acquisition time (ms)
+        self.delay_beforeLED_ON = 400/1000 ## ms
+        self.delay_afterLED_OFF = 1300/1000 ## ms
+        globals.delays_aroundLED = self.delay_beforeLED_ON + self.delay_afterLED_OFF
+        self.delay_afterShutter_Open = 0.5 # seconds
+        self.delay_afterShutter_Close = 0.1 # seconds
+        globals.delays_aroundShutter = self.delay_afterShutter_Open + self.delay_afterShutter_Close
+        globals.delays_total = globals.delays_aroundLED + globals.delays_aroundShutter
         
         self.measconfig.m_CorDynDark_m_Enable = 1
         self.DarkCorrChk.setChecked(True)
@@ -1125,7 +1152,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.NrMeasEdt.setText("10") ## default nr. measurements
         self.Interval.setText("10") # default interval in seconds
         
-        globals.filename = "tests/20250923/TEST"
+        globals.filename = "tests/20250930/TEST"
         print(f"DefaultSettings === globals.filename: {globals.filename}")
         
     def DisconnectGui(self):

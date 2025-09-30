@@ -21,6 +21,7 @@ mSelectedDevRow = 0
 ########## ADDED BY ME ##########
 filename = ""
 MeasurementType = ""
+AcquisitionMode = ""
 DarkSpectrum = [0.0]
 RefSpectrum  = [0.0]
 RefSpectrum_DarkCorr  = [0.0]

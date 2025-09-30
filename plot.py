@@ -12,7 +12,7 @@ import globals
 # Matplotlib canvas class to create figure
 class MplCanvas(Canvas):
     def __init__(self):
-        self.fig = Figure()
+        self.fig = Figure(constrained_layout=True)
         self.ax = self.fig.add_subplot(111)
         Canvas.__init__(self, self.fig)
         Canvas.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
@@ -28,9 +28,21 @@ class Plot(QtWidgets.QWidget):
 
     def update_plot(self):
         self.canvas.ax.clear()
+        self.canvas.ax.set_xlabel("Wavelength (nm)")
+        self.canvas.ax.set_ylabel("Counts (Dark- and SLS-Corrected)")
+        self.canvas.ax.plot(globals.wavelength, globals.ScopeSpectrum_DarkSLSCorr)
+        ############
+        # self.canvas.ax.set_ylim(-100,3000)
+        ############
+        self.canvas.draw()
+        self.show()    
+        return
+
+    def update_absorbanceplot(self):
+        self.canvas.ax.clear()
         self.canvas.ax.set_xlabel("Wavelength [nm]")
-        self.canvas.ax.set_ylabel("Counts")
-        self.canvas.ax.plot(globals.wavelength[:globals.pixels], globals.spectraldata[:globals.pixels])
+        self.canvas.ax.set_ylabel("Absorbance")
+        self.canvas.ax.plot(globals.wavelength, globals.AbsSpectrum)
         ############
         # self.canvas.ax.set_ylim(-100,3000)
         ############

@@ -60,7 +60,8 @@ def initialise_Arduino():
     if Settings.MODE_LED == "TEST":
         pass
     else:
-        Settings.arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1) ## fibirr laptop
+        # Settings.arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1) ## fibirr laptop
+        Settings.arduino = serial.Serial(port='COM5', baudrate=115200, timeout=.1) ## other laptop
         time.sleep(2) ## need to wait a bit after opening the communication
 
 def AdjustMaxCurrent(LED):
