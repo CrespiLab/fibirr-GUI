@@ -44,7 +44,8 @@ class Plot(QtWidgets.QWidget):
         self.canvas.ax.set_ylabel("Absorbance")
         self.canvas.ax.plot(globals.wavelength, globals.AbsSpectrum)
         ############
-        # self.canvas.ax.set_ylim(-100,3000)
+        self.canvas.ax.set_xlim(250,1330)
+        self.canvas.ax.set_ylim(-0.05,1.5)
         ############
         self.canvas.draw()
         self.show()    

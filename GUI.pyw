@@ -360,40 +360,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
         return
 
-###############################################################################
-###############################################################################
-###############################################################################
-    def print_vars(self, *args):
-        for v in args:
-            # Find all attribute names on self that reference this value
-            names = [name for name, val in self.__dict__.items() if val is v]
-            if names:
-                print(f"{names[0]} = {v}")
-            else:
-                print(f"<unknown> = {v}")
-
-    def print_settings(self):
-        self.print_vars(self.measconfig.m_StartPixel, self.measconfig.m_StopPixel,
-                        self.measconfig.m_IntegrationTime, self.measconfig.m_IntegrationDelay,
-                        self.measconfig.m_NrAverages, 
-                        self.measconfig.m_CorDynDark_m_Enable, self.measconfig.m_CorDynDark_m_ForgetPercentage,
-                        self.measconfig.m_SaturationDetection,
-                        self.measconfig.m_Trigger_m_Mode)
-
-##!!! TEST AND FIND OPTIMAL DELAY TIME (see DefaultSettings)
-    def Shutter_Open(self):
-        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-        time.sleep(self.delay_afterShutter_Open) ## short delay between Open Shutter and Measure
-        
-        print(">> Shutter_Open <<")
-
-    def Shutter_Close(self):
-        # time.sleep(delay_b) ##!!! small delay necessary maybe, but ideally command should wait for acquisition to be finished
-        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-        time.sleep(self.delay_afterShutter_Close) ## short delay between Measure and Close Shutter
-        
-        print(">> Shutter Closed <<")
-
     @pyqtSlot()
     def on_SettingsBtn_clicked(self):
         print("on_SettingsBtn_clicked")
@@ -415,14 +381,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if (self.ExternalTriggerBtn.isChecked()):
             self.measconfig.m_Trigger_m_Mode = 1
             ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
-
-        self.print_settings()
     ###########################################
 
     @pyqtSlot()
     def on_DarkMeasBtn_clicked(self):
         print("on_DarkMeasBtn_clicked")
-        self.print_settings()
         globals.MeasurementType = "Dark"
         if MODE == "DEMO":
             print("DEMO MODE: on_DarkMeasBtn_clicked clicked")
@@ -442,7 +405,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 self.NrFailuresEdt.setText("{0:d}".format(0))
             self.DarkMeasBtn.setEnabled(False) 
 
-            timestamp = 0
             # print(f"globals.m_Measurements: {globals.m_Measurements}")
 
             ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
@@ -453,10 +415,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             while (globals.dataready == False):
                 globals.dataready = (ava.AVS_PollScan(globals.dev_handle) == True)
                 time.sleep(0.001)
-            
             if globals.dataready == True:
-                # timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
-                # globals.spectraldata = globals.spectraldata[:globals.pixels]
                 self.newdata.emit(globals.dev_handle, ret)
                 time.sleep(self.delay_acq)
 
@@ -468,7 +427,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     @pyqtSlot()
     def on_RefMeasBtn_clicked(self):
         print("on_RefMeasBtn_clicked")
-        self.print_settings()
         globals.MeasurementType = "Ref"
         self.StartMeasBtn.setEnabled(False) 
 
@@ -541,7 +499,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         if (self.SingleRBtn.isChecked()): ## added
             globals.AcquisitionMode = "Single" 
-
             globals.l_NrOfScans = int(1)
             self.worker_meas.func = self.Single_Measurement #here the job of the worker is defined
 
@@ -555,15 +512,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.l_NrOfScans = int(self.NrMeasEdt.text())
             globals.l_interval = int(self.Interval.text())
             self.worker_meas.func = self.Kinetics_Measurement #here the job of the worker is defined
-            ##!!! TURN OFF LED AND SHOW MESSAGE
+            ##!!! before start, just in case: TURN OFF LED AND SHOW MESSAGE
 
         if (self.ContinuousRBtn.isChecked()):
             globals.AcquisitionMode = "Continuous" 
             if self.NrMeasEdt.text() == "0":
-                globals.l_NrOfScans = -1
+                globals.l_NrOfScans = 10000
             else:
                 globals.l_NrOfScans = int(self.NrMeasEdt.text())
-            ##!!! ADD FUNCTIONALITY
+            self.worker_meas.func = self.Continuous_Measurement #here the job of the worker is defined
 
         if (self.IrrKinRBtn.isChecked()):
             ##!!! ADD: if LED is not chosen or current is not chosen: stop
@@ -591,26 +548,25 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     @pyqtSlot()
     def One_Measurement(self):
+        ##!!! FIX apparent issue with delays: Continuous mode has higher intensity
+        
         print("=== One_Measurement ===")
         ###########################################        
-        timestamp = 0
-
         ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
         globals.dataready = False
         print(f"globals.dataready: {globals.dataready}")
-        self.Shutter_Open()
+        if globals.AcquisitionMode != "Continuous":
+            self.Shutter_Open()
         
         while (globals.dataready == False):
             globals.dataready = (ava.AVS_PollScan(globals.dev_handle) == True)
             time.sleep(0.001)
-        
         if globals.dataready == True:
-            # timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
-            # globals.spectraldata = globals.spectraldata[:globals.pixels]
             self.newdata.emit(globals.dev_handle, ret)
             time.sleep(self.delay_acq)
         
-        self.Shutter_Close()
+        if globals.AcquisitionMode != "Continuous":
+            self.Shutter_Close()
         print("One Measurement done")
         print(f"globals.m_Measurements: {globals.m_Measurements}")
         return
@@ -631,6 +587,31 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
         return
+
+    @pyqtSlot()
+    def Continuous_Measurement(self):
+        print("=== Continuous_Measurement ===")
+        self.StartMeasBtn.setEnabled(False)
+        nummeas = globals.l_NrOfScans
+        globals.m_Measurements = 0
+        self.cancelled = False
+        self.Shutter_Open()
+        
+        print(f"===nummeas: {nummeas}")
+        for i in range(nummeas):
+            if self.cancelled == True: ## break loop if Stop button was pressed
+                print("Stopped Measurement")
+                self.Shutter_Close()
+                return
+            else:
+                self.One_Measurement()
+
+        print("Continuous Measurement done")
+        self.Shutter_Close()
+        self.StartMeasBtn.setEnabled(True)
+        self.StopMeasBtn.setEnabled(False)
+        return
+
 
     @pyqtSlot()
     def Kinetics_Measurement(self):
@@ -663,17 +644,20 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     @pyqtSlot()
     def IrradiationKinetics_Measurement(self):
+        ''' The interval defined by the user is used for the delay,
+            i.e. it is the actual irradiation time.
+            There are some delays around spectral acquisition.
+        '''
         print("=== IrradiationKinetics_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
         nummeas = globals.l_NrOfScans
         globals.m_Measurements = 0
-        delay = int(globals.l_interval - globals.delays_total)
+        delay = globals.l_interval ## delay is irradiation time (user-defined)
         self.cancelled = False
         print(f"===nummeas: {nummeas}\n===LED {self.selected_LED}, {self.current} mA ({self.percentage} %)")
 
         ##!!! IMPORTANT:
             ## log actual irradiation time
-            ## and have this be the time interval input by the user
 
         for i in range(nummeas):
             print(f"i: {i}")
@@ -685,14 +669,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             else:
                 self.One_Measurement() ## do one measurement
                 if globals.m_Measurements != nummeas:
-                    self.turnLED_ON() ## turn on LED
+                    self.turnLED_ON() ## wait for a bit, and turn on LED
                     print(f"Waiting for {delay} s")
                     for t in range(delay):
                         time.sleep(1)
                         if self.cancelled == True:
                             break
                     print(f"Delay {delay} s done")
-                    self.turnLED_OFF() ## turn off LED
+                    self.turnLED_OFF() ## turn off LED, and wait for a bit
         print(f"Irradiation Kinetics measurement done ({nummeas} measurements)")
         
         ##!!! ADD: SAVE LOG
@@ -717,6 +701,31 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         ret = ava.AVS_StopMeasure(globals.dev_handle)
         self.cancelled = True
         return
+
+    ###########################################################################
+    ###########################################################################
+
+##!!! TEST AND FIND OPTIMAL DELAY TIME (see DefaultSettings)
+    def Shutter_Open(self):
+        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
+        
+        ##!!! ADD TIMESTAMP
+        #globals.timestamps_ShutterOpen = 
+                
+        time.sleep(self.delay_afterShutter_Open) ## short delay between Open Shutter and Measure
+        
+        print(">> Shutter_Open <<")
+
+    def Shutter_Close(self):
+        # time.sleep(delay_b) ##!!! small delay necessary maybe, but ideally command should wait for acquisition to be finished
+        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+        
+        ##!!! ADD TIMESTAMP
+        #globals.timestamps_ShutterClose = 
+        
+        time.sleep(self.delay_afterShutter_Close) ## short delay between Measure and Close Shutter
+        
+        print(">> Shutter Closed <<")
 
     ###########################################################################
     ###########################################################################
@@ -753,10 +762,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if not (self.StartMeasBtn.isEnabled()): ## if on-going measurement
             time.sleep(self.delay_beforeLED_ON)
         LEDControl.turnLED_ON()
+        
+        ##!!! ADD
+        ##globals.timestamp_LED_ON = 
         self.update_label_LEDstatus()
 
     def turnLED_OFF(self):
         LEDControl.turnLED_OFF()
+        ##!!! ADD
+        ##globals.timestamp_LED_OFF = 
         self.update_label_LEDstatus()
         if not (self.StartMeasBtn.isEnabled()): ## if on-going measurement
             time.sleep(self.delay_afterLED_OFF)
@@ -1123,11 +1137,19 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.AvgEdt.setText(f"{self.measconfig.m_NrAverages:0d}") ## default # averages
         
         self.delay_acq = (self.measconfig.m_IntegrationTime * self.measconfig.m_NrAverages)/1000 # acquisition time (ms)
+        # self.delay_acq = 2*self.delay_acq ##!!! TESTING
+        print(f"self.delay_acq: {self.delay_acq}")
+        
         self.delay_beforeLED_ON = 400/1000 ## ms
         self.delay_afterLED_OFF = 1300/1000 ## ms
         globals.delays_aroundLED = self.delay_beforeLED_ON + self.delay_afterLED_OFF
+        
         self.delay_afterShutter_Open = 0.5 # seconds
         self.delay_afterShutter_Close = 0.1 # seconds
+        
+        print(f"self.delay_afterShutter_Open: {self.delay_afterShutter_Open}")
+        print(f"self.delay_afterShutter_Close: {self.delay_afterShutter_Close}")
+        
         globals.delays_aroundShutter = self.delay_afterShutter_Open + self.delay_afterShutter_Close
         globals.delays_total = globals.delays_aroundLED + globals.delays_aroundShutter
         
