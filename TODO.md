@@ -4,6 +4,7 @@
 - [ ] Add logo (goat)
 - [ ] Add option for exponential fitting of kinetic trace
 - [ ] Add status box for messages, errors, warnings, etc.
+- [ ] Add plotting options: x-axis and y-axis limits; etc.
 
 
 - [ ] Add module for power measurement of LEDs
