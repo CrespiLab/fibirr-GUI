@@ -78,13 +78,6 @@ import tools.settings as Settings
 import tools.LED_control as LEDControl
 
 ##############################
-#### DEMO MODE ###
-# MODE = "DEMO"
-MODE = "EXP"
-
-# Settings.MODE_LED = "TEST"
-
-##############################
 ######## add to globals.py
 SHUTTER_OPEN = 1 ## value to open shutter
 SHUTTER_CLOSE = 0 ## value to close shutter
@@ -119,7 +112,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         QMainWindow.__init__(self, parent)
         self.setupUi(self)
         #self.setWindowIcon() ##!!! add icon here or in Designer
-        self.showMaximized()
+        # self.showMaximized()
         
         #self.PreScanChk.hide()
         #self.SetNirSensitivityRgrp.hide()
@@ -387,41 +380,38 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def on_DarkMeasBtn_clicked(self):
         print("on_DarkMeasBtn_clicked")
         globals.MeasurementType = "Dark"
-        if MODE == "DEMO":
-            print("DEMO MODE: on_DarkMeasBtn_clicked clicked")
-        elif MODE == "EXP":
-            ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
-            ###########################################
-            globals.l_NrOfScans = int(1) # 1 scan
-            ###########################################
-            if (self.DarkMeasBtn.isEnabled()):
-                print ("on_DarkMeasBtn_clicked === DarkMeasBtn enabled")
-                globals.m_DateTime_start = QDateTime.currentDateTime()
-                globals.m_SummatedTimeStamps = 0.0
-                globals.m_Measurements = 0
-                globals.m_Failures = 0
-                self.TimeSinceStartEdt.setText("{0:d}".format(0))
-                self.NrScansEdt.setText("{0:d}".format(0))
-                self.NrFailuresEdt.setText("{0:d}".format(0))
-            self.DarkMeasBtn.setEnabled(False) 
+        ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
+        ###########################################
+        globals.l_NrOfScans = int(1) # 1 scan
+        ###########################################
+        if (self.DarkMeasBtn.isEnabled()):
+            print ("on_DarkMeasBtn_clicked === DarkMeasBtn enabled")
+            globals.m_DateTime_start = QDateTime.currentDateTime()
+            globals.m_SummatedTimeStamps = 0.0
+            globals.m_Measurements = 0
+            globals.m_Failures = 0
+            self.TimeSinceStartEdt.setText("{0:d}".format(0))
+            self.NrScansEdt.setText("{0:d}".format(0))
+            self.NrFailuresEdt.setText("{0:d}".format(0))
+        self.DarkMeasBtn.setEnabled(False) 
 
-            # print(f"globals.m_Measurements: {globals.m_Measurements}")
+        # print(f"globals.m_Measurements: {globals.m_Measurements}")
 
-            ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
-            globals.dataready = False
-            print(f"globals.dataready: {globals.dataready}")
-            self.Shutter_Close()
-            
-            while (globals.dataready == False):
-                globals.dataready = (ava.AVS_PollScan(globals.dev_handle) == True)
-                time.sleep(0.001)
-            if globals.dataready == True:
-                self.newdata.emit(globals.dev_handle, ret)
-                time.sleep(self.delay_acq)
+        ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
+        globals.dataready = False
+        print(f"globals.dataready: {globals.dataready}")
+        self.Shutter_Close()
+        
+        while (globals.dataready == False):
+            globals.dataready = (ava.AVS_PollScan(globals.dev_handle) == True)
+            time.sleep(0.001)
+        if globals.dataready == True:
+            self.newdata.emit(globals.dev_handle, ret)
+            time.sleep(self.delay_acq)
 
-            print("Dark Measurement done")
-            self.DarkMeasBtn.setEnabled(True)
-            return
+        print("Dark Measurement done")
+        self.DarkMeasBtn.setEnabled(True)
+        return
 
 ##!!! ADD provision that Dark Measurement needs to have been carried out
     @pyqtSlot()
@@ -429,32 +419,28 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         print("on_RefMeasBtn_clicked")
         globals.MeasurementType = "Ref"
         self.StartMeasBtn.setEnabled(False) 
-
-        if MODE == "DEMO":
-            print("DEMO MODE: on_RefMeasBtn_clicked clicked")
-        elif MODE == "EXP":
-            ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
-            ###########################################
-            globals.l_NrOfScans = int(1) # 1 scan
-            ###########################################
-            if (self.RefMeasBtn.isEnabled()):
-                print ("on_RefMeasBtn_clicked === RefMeasBtn enabled")
-                globals.m_DateTime_start = QDateTime.currentDateTime()
-                globals.m_SummatedTimeStamps = 0.0
-                globals.m_Measurements = 0
-                globals.m_Failures = 0
-                self.TimeSinceStartEdt.setText("{0:d}".format(0))
-                self.NrScansEdt.setText("{0:d}".format(0))
-                self.NrFailuresEdt.setText("{0:d}".format(0))
-            self.RefMeasBtn.setEnabled(False)
-            # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
-            
-            print(f"====== RefMeasBtn ======\nglobals.l_NrOfScans: {globals.l_NrOfScans}")
-            self.One_Measurement()
-            
-            self.RefMeasBtn.setEnabled(True)
-            self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
-            return
+        ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
+        ###########################################
+        globals.l_NrOfScans = int(1) # 1 scan
+        ###########################################
+        if (self.RefMeasBtn.isEnabled()):
+            print ("on_RefMeasBtn_clicked === RefMeasBtn enabled")
+            globals.m_DateTime_start = QDateTime.currentDateTime()
+            globals.m_SummatedTimeStamps = 0.0
+            globals.m_Measurements = 0
+            globals.m_Failures = 0
+            self.TimeSinceStartEdt.setText("{0:d}".format(0))
+            self.NrScansEdt.setText("{0:d}".format(0))
+            self.NrFailuresEdt.setText("{0:d}".format(0))
+        self.RefMeasBtn.setEnabled(False)
+        # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
+        
+        print(f"====== RefMeasBtn ======\nglobals.l_NrOfScans: {globals.l_NrOfScans}")
+        self.One_Measurement()
+        
+        self.RefMeasBtn.setEnabled(True)
+        self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
+        return
 
     @pyqtSlot()
     def on_StartMeasBtn_clicked(self):
@@ -782,7 +768,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def update_plot(self):
         if (self.DisableGraphChk.isChecked() == False):
             if (self.Mode_Scope.isChecked()):
-                self.plot.update_plot() ## plot.py/update_plot
+                if globals.MeasurementType == "Dark":
+                    self.plot.update_plot(globals.DarkSpectrum)
+                elif globals.MeasurementType == "Ref":
+                    self.plot.update_plot(globals.RefSpectrum_DarkSLSCorr) ## plot.py/update_plot
+                elif globals.MeasurementType == "Measurement":
+                    self.plot.update_plot(globals.ScopeSpectrum_DarkSLSCorr)
             elif (self.Mode_Absorbance.isChecked()):
                 self.plot.update_absorbanceplot()
             else:
@@ -809,9 +800,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         None.
 
         '''
-        
-        ##!!! USE 
-        
         FileObject = filename+f"_{mode}"+".csv"
         data_vstack = np.vstack((globals.wavelength,
                                      spectrum))
@@ -819,9 +807,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         xydata = pd.DataFrame(data_transposed,columns=["Wavelength (nm)","Pixel values"])
         xydata.to_csv(FileObject,index=False)
         # print(f"{mode} spectrum auto-saved as {FileObject}")
-        
-        ##!!! ADD MESSAGE
-        ## self.statusBar.showMessage("blabla Spectrum auto-saved")
+
+        self.statusBar.showMessage(f"{globals.MeasurementType} Spectrum auto-saved as {FileObject}")
 
 
     @pyqtSlot(int, int)
@@ -851,9 +838,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         if globals.MeasurementType == "Dark":
                             globals.DarkSpectrum_doublearray = globals.spectraldata
                             globals.DarkSpectrum = globals.DarkSpectrum_doublearray[:globals.pixels]
-                            ####
                             self.auto_save(filename, "Dark", globals.DarkSpectrum)
-                            self.statusBar.showMessage("Dark Spectrum auto-saved") ## Message box added
                         elif globals.MeasurementType == "Ref":
                             globals.RefSpectrum_doublearray = globals.spectraldata
                             globals.RefSpectrum = globals.RefSpectrum_doublearray[:globals.pixels]
@@ -956,33 +941,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                     except:
                         print("new data was not handled") ##!!! add error output
                     return
-                    
                     ######################################################
-                    
-                else: # StoreToRam measurements
-                ## REMOVE CODE?
-                    l_AvgScantimeRAM = 0.0
-                    self.statusBar.showMessage("Meas.Status: Reading RAM")
-                    j = 0
-                    while j < lerror:
-                        timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle)
-                        # self.plot.update_plot()
-                        l_Dif = timestamp - globals.m_PreviousTimeStamp  # timestamps in 10 us ticks
-                        globals.m_PreviousTimeStamp = timestamp
-                        if (j > 1):
-                            globals.m_SummatedTimeStamps += l_Dif
-                            self.LastScanEdt.setText("{0:.3f}".format(l_Dif/100.0))  # in millisec
-                            timeperscan = float(globals.m_SummatedTimeStamps) / float(100.0 * (j - 1))
-                            self.TimePerScanEdt.setText("{0:.3f}".format(timeperscan))
-                        else:
-                            self.LastScanEdt.setText("")
-                            self.TimePerScanEdt.setText("")
-                        l_Seconds = globals.m_DateTime_start.secsTo(QDateTime.currentDateTime())
-                        self.TimeSinceStartEdt.setText("{0:d}".format(l_Seconds))
-                        self.NrScansEdt.setText("{0:d}".format(j+1))
-                        j += 1
-                    self.statusBar.showMessage("Meas.Status: Finished Reading RAM")    
-                    self.StartMeasBtn.setEnabled(True)
         else:
             self.statusBar.showMessage("Meas.Status: failed. {0:d})".format(lerror))
             globals.m_Failures += 1
@@ -1029,27 +988,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode = 0
         if (self.ExternalTriggerBtn.isChecked()):
             l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode = 1
-        # if (self.SoftwareTriggerRBtn.isChecked()):
-        #     l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode = 0
-        # if (self.HardwareTriggerRBtn.isChecked()):
-        #     l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode = 1
-        # if (self.SingleScanTriggerRBtn.isChecked()):
-        #     l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Mode = 2
-        # l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_Source = self.SynchTriggerRBtn.isChecked()
-        # l_DeviceData.m_StandAlone_m_Meas_m_Trigger_m_SourceType = self.LevelTriggerRBtn.isChecked()
         ###########################################
         l_DeviceData.m_StandAlone_m_Meas_m_SaturationDetection = int(self.SatDetEdt.text())
         l_DeviceData.m_StandAlone_m_Meas_m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked()
         l_DeviceData.m_StandAlone_m_Meas_m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text())
-        # l_DeviceData.m_StandAlone_m_Meas_m_Smoothing_m_SmoothPix = int(self.SmoothNrPixelsEdt.text())
-        # l_DeviceData.m_StandAlone_m_Meas_m_Smoothing_m_SmoothModel = int(self.SmoothModelEdt.text())
-        # l_DeviceData.m_StandAlone_m_Meas_m_Control_m_StrobeControl = int(self.FlashesPerScanEdt.text())
-        # l_NanoSec = float(self.LaserDelayEdt.text())
-        # l_DeviceData.m_StandAlone_m_Meas_m_Control_m_LaserDelay = int(6.0*l_NanoSec/125.0)
-        # l_NanoSec = float(self.LaserWidthEdt.text())
-        # l_DeviceData.m_StandAlone_m_Meas_m_Control_m_LaserWidth = int(6.0*l_NanoSec/125.0)
-        # l_DeviceData.m_StandAlone_m_Meas_m_Control_m_LaserWaveLength = float(self.LaserWavEdt.text())
-        # l_DeviceData.m_StandAlone_m_Meas_m_Control_m_StoreToRam = int(self.NrStoreToRamEdt.text())
         ####
         l_DeviceData.m_StandAlone_m_Nmsr = int(self.NrMeasEdt.text())
         # write measurement parameters

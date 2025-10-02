@@ -26,11 +26,15 @@ class Plot(QtWidgets.QWidget):
         self.vbl.addWidget(self.canvas)
         self.setLayout(self.vbl)
 
-    def update_plot(self):
+    def update_plot(self, spectrum):
         self.canvas.ax.clear()
         self.canvas.ax.set_xlabel("Wavelength (nm)")
-        self.canvas.ax.set_ylabel("Counts (Dark- and SLS-Corrected)")
-        self.canvas.ax.plot(globals.wavelength, globals.ScopeSpectrum_DarkSLSCorr)
+        if globals.MeasurementType == "Dark":
+            self.canvas.ax.set_ylabel("Counts")
+        else:
+            self.canvas.ax.set_ylabel("Counts (Dark- and SLS-Corrected)")
+        # self.canvas.ax.plot(globals.wavelength, globals.ScopeSpectrum_DarkSLSCorr)
+        self.canvas.ax.plot(globals.wavelength, spectrum)
         ############
         # self.canvas.ax.set_ylim(-100,3000)
         ############
