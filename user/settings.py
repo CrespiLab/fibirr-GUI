@@ -43,3 +43,5 @@ count = 1
 
 #MODE_LED = ""
 MODE_LED = "TEST" ## use if no Arduino connected (test mode)
+
+Default_AutoSaveFolder = r"user/back-up"

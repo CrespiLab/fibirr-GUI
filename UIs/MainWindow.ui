@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1208</width>
-    <height>866</height>
+    <width>1216</width>
+    <height>883</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -424,7 +424,7 @@
        <property name="geometry">
         <rect>
          <x>260</x>
-         <y>300</y>
+         <y>320</y>
          <width>131</width>
          <height>24</height>
         </rect>
@@ -437,7 +437,7 @@
        <property name="geometry">
         <rect>
          <x>400</x>
-         <y>300</y>
+         <y>320</y>
          <width>131</width>
          <height>24</height>
         </rect>
@@ -575,7 +575,7 @@
           <x>10</x>
           <y>20</y>
           <width>151</width>
-          <height>23</height>
+          <height>24</height>
          </rect>
         </property>
         <property name="text">
@@ -588,7 +588,7 @@
           <x>10</x>
           <y>50</y>
           <width>151</width>
-          <height>23</height>
+          <height>24</height>
          </rect>
         </property>
         <property name="text">
@@ -992,6 +992,32 @@
         </property>
        </widget>
       </widget>
+      <widget class="QPushButton" name="AutoSaveFolderBtn">
+       <property name="geometry">
+        <rect>
+         <x>260</x>
+         <y>280</y>
+         <width>131</width>
+         <height>24</height>
+        </rect>
+       </property>
+       <property name="text">
+        <string>Auto-Save Folder</string>
+       </property>
+      </widget>
+      <widget class="QLineEdit" name="Label_AutoSaveFolder">
+       <property name="geometry">
+        <rect>
+         <x>400</x>
+         <y>280</y>
+         <width>131</width>
+         <height>20</height>
+        </rect>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_8">
       <property name="geometry">
@@ -1279,7 +1305,7 @@
          <x>350</x>
          <y>290</y>
          <width>91</width>
-         <height>23</height>
+         <height>24</height>
         </rect>
        </property>
        <property name="text">
@@ -1581,7 +1607,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1208</width>
+     <width>1216</width>
      <height>21</height>
     </rect>
    </property>

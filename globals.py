@@ -19,7 +19,6 @@ mSelectedDevRow = 0
 
 #################################
 ########## ADDED BY ME ##########
-filename = ""
 MeasurementType = ""
 AcquisitionMode = ""
 DarkSpectrum = [0.0]

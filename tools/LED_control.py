@@ -22,7 +22,7 @@ GUI:
 import serial ## for communication with Arduino COM port
 import time
 
-import tools.settings as Settings
+import user.settings as Settings
 
 ########################################################
 

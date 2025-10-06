@@ -74,7 +74,7 @@ from UIs import MainWindow
 import analog_io_demo
 import digital_io_demo
 import eeprom_demo
-import tools.settings as Settings
+import user.settings as Settings
 import tools.LED_control as LEDControl
 
 ##############################
@@ -688,6 +688,31 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.cancelled = True
         return
 
+    @pyqtSlot()
+    def on_AutoSaveFolderBtn_clicked(self):
+        print("=== SaveFolderBtn clicked ===")
+        
+        # options = QtWidgets.QFileDialog.Options()
+
+        ## File dialog for selecting files
+        folder = QFileDialog.getExistingDirectory(self,
+                                                  "Choose folder for auto-saving", 
+                                                  "",
+                                                  QFileDialog.ShowDirsOnly)
+        if folder:
+            globals.AutoSaveFolder = folder
+        else:
+            print("No folder selected.")
+            globals.AutoSavefolder = Settings.Default_AutoSaveFolder
+            ##!!! PRINT MESSAGE: NO AUTO-SAVE FOLDER SELECTED: REVERTED TO BACK-UP
+                ## CREATE BACK-UP FOLDER WITH NAME: DATE AND TIME
+        
+        self.update_label_AutoSaveFolder()
+        return
+
+    def update_label_AutoSaveFolder(self):
+        self.Label_AutoSaveFolder.setText(globals.AutoSaveFolder)
+
     ###########################################################################
     ###########################################################################
 
@@ -781,7 +806,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         return         
 
     @pyqtSlot()
-    def auto_save(self, filename, mode, spectrum):
+    def auto_save(self, foldername, mode, spectrum):
         '''
         Saves spectrum as .csv file
         ##!!! CAN BE SIMPLIFIED
@@ -800,13 +825,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         None.
 
         '''
-        FileObject = filename+f"_{mode}"+".csv"
+        FileObject = f"{foldername}/{mode}.csv"
         data_vstack = np.vstack((globals.wavelength,
                                      spectrum))
         data_transposed = np.transpose(data_vstack)
         xydata = pd.DataFrame(data_transposed,columns=["Wavelength (nm)","Pixel values"])
         xydata.to_csv(FileObject,index=False)
         # print(f"{mode} spectrum auto-saved as {FileObject}")
+
+        ##!!! FOR SINGLE MODE: IF FILE ALREADY EXISTS: ADD A NUMBER
 
         self.statusBar.showMessage(f"{globals.MeasurementType} Spectrum auto-saved as {FileObject}")
 
@@ -833,20 +860,20 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         timestamp = 0
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
                         # ##################
-                        filename = globals.filename                        
+                        savefolder = globals.AutoSaveFolder
                         ##################
                         if globals.MeasurementType == "Dark":
                             globals.DarkSpectrum_doublearray = globals.spectraldata
                             globals.DarkSpectrum = globals.DarkSpectrum_doublearray[:globals.pixels]
-                            self.auto_save(filename, "Dark", globals.DarkSpectrum)
+                            self.auto_save(savefolder, "Dark", globals.DarkSpectrum)
                         elif globals.MeasurementType == "Ref":
                             globals.RefSpectrum_doublearray = globals.spectraldata
                             globals.RefSpectrum = globals.RefSpectrum_doublearray[:globals.pixels]
-                            self.auto_save(filename, "Ref", globals.RefSpectrum)
+                            self.auto_save(savefolder, "Ref", globals.RefSpectrum)
                             
                             #### Dark-Corrected ####
                             globals.RefSpectrum_DarkCorr = [globals.RefSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
-                            self.auto_save(filename, "RefDarkCorr", globals.RefSpectrum_DarkCorr)
+                            self.auto_save(savefolder, "Ref_DarkCorr", globals.RefSpectrum_DarkCorr)
                             
                             #####################################
                             '''
@@ -863,8 +890,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                                               SLSfactor,
                                                               globals.RefSpectrum_DarkCorr_doublearray)
                             globals.RefSpectrum_DarkSLSCorr = list(globals.RefSpectrum_DarkSLSCorr_doublearray) # convert to list
-                            self.auto_save(filename, "RefDarkSLSCorr", globals.RefSpectrum_DarkSLSCorr)
+                            self.auto_save(savefolder, "Ref_DarkSLSCorr", globals.RefSpectrum_DarkSLSCorr)
                             
+                            ##!!! SAVE ALL REFERENCE SPECTRA IN ONE FILE
 
                         elif globals.MeasurementType == "Measurement":
                             globals.ScopeSpectrum_doublearray = globals.spectraldata
@@ -892,9 +920,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                                               globals.ScopeSpectrum_DarkCorr_doublearray)
                             globals.ScopeSpectrum_DarkSLSCorr = list(globals.ScopeSpectrum_DarkSLSCorr_doublearray) # convert to list
                             
-                            self.auto_save(filename, f"{globals.AcquisitionMode}_Int_{globals.m_Measurements}", globals.ScopeSpectrum)
-                            self.auto_save(filename, f"{globals.AcquisitionMode}_IntDarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
-                            self.auto_save(filename, f"{globals.AcquisitionMode}_IntDarkSLSCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkSLSCorr)
+                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_{globals.m_Measurements}", globals.ScopeSpectrum)
+                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
+                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkSLSCorr)
                             
                             #####################################
                             ########## ABSORBANCE MODE ##########
@@ -903,7 +931,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                 print("Absorbance Mode")
                                 globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
                                 globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
-                                self.auto_save(filename, f"{globals.AcquisitionMode}_Abs_{globals.m_Measurements}", globals.AbsSpectrum)
+                                self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_{globals.m_Measurements}", globals.AbsSpectrum)
 
                         #####################################
                         else:
@@ -917,6 +945,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             SpectrumIsSatured = SpectrumIsSatured or globals.saturated[j]
                             j += 1
                             self.SaturatedChk.setChecked(SpectrumIsSatured)
+                        
                         l_Dif = timestamp - globals.m_PreviousTimeStamp  # timestamps in 10 us ticks
                         globals.m_PreviousTimeStamp = timestamp ##!!! use this as timestamp
                         
@@ -928,14 +957,16 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         else:
                             self.LastScanEdt.setText("")
                             self.TimePerScanEdt.setText("")
-                        l_Seconds = globals.m_DateTime_start.secsTo(QDateTime.currentDateTime())
+
+                        l_Seconds = globals.m_DateTime_start.secsTo(QDateTime.currentDateTime()) ## m_DateTime_start set upon clicking StartMeasBtn
                         self.TimeSinceStartEdt.setText("{0:d}".format(l_Seconds))
                         self.NrScansEdt.setText("{0:d}".format(globals.m_Measurements))
                         ###########################################
-                        if (self.KineticsRBtn.isChecked()):
-                           self.StartMeasBtn.setEnabled(int(self.NrMeasEdt.text()) == globals.m_Measurements) 
+                        # if (self.KineticsRBtn.isChecked()):
+                        #    self.StartMeasBtn.setEnabled(int(self.NrMeasEdt.text()) == globals.m_Measurements) 
                                ## enable Start Measurement button when the user-defined #meas (NrMeasEdt) is equal to
                                    ## the number of measured spectra (globals.m_Measurements)
+                                   ## DON'T NEED IT ANYMORE?
                         
                         self.update_plot() ## update plot
                     except:
@@ -1116,8 +1147,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.NrMeasEdt.setText("10") ## default nr. measurements
         self.Interval.setText("10") # default interval in seconds
         
-        globals.filename = "tests/20250930/TEST"
-        print(f"DefaultSettings === globals.filename: {globals.filename}")
+        globals.AutoSaveFolder = Settings.Default_AutoSaveFolder
+        ##!!! SET DEFAULT
+        
+        # globals.filename = "tests/20250930/TEST"
+        # print(f"DefaultSettings === globals.filename: {globals.filename}")
         
     def DisconnectGui(self):
         self.DetectorEdt.clear()
