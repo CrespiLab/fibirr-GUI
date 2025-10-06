@@ -353,7 +353,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.MeasurementType = "Dark"
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
         ###########################################
-        globals.l_NrOfScans = int(1) # 1 scan
+        # globals.l_NrOfScans = int(1) # 1 scan
         ###########################################
         if (self.DarkMeasBtn.isEnabled()):
             print ("on_DarkMeasBtn_clicked === DarkMeasBtn enabled")
@@ -362,7 +362,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_Measurements = 0
             globals.m_Failures = 0
             self.TimeSinceStartEdt.setText("{0:d}".format(0))
-            self.NrScansEdt.setText("{0:d}".format(0))
+            self.CycleNr.setText("{0:d}".format(0))
             self.NrFailuresEdt.setText("{0:d}".format(0))
         self.DarkMeasBtn.setEnabled(False) 
 
@@ -392,7 +392,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StartMeasBtn.setEnabled(False) 
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
         ###########################################
-        globals.l_NrOfScans = int(1) # 1 scan
+        # globals.l_NrOfScans = int(1) # 1 scan
         ###########################################
         if (self.RefMeasBtn.isEnabled()):
             print ("on_RefMeasBtn_clicked === RefMeasBtn enabled")
@@ -401,12 +401,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_Measurements = 0
             globals.m_Failures = 0
             self.TimeSinceStartEdt.setText("{0:d}".format(0))
-            self.NrScansEdt.setText("{0:d}".format(0))
+            self.CycleNr.setText("{0:d}".format(0))
             self.NrFailuresEdt.setText("{0:d}".format(0))
         self.RefMeasBtn.setEnabled(False)
         # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
         
-        print(f"====== RefMeasBtn ======\nglobals.l_NrOfScans: {globals.l_NrOfScans}")
+        # print(f"====== RefMeasBtn ======\nglobals.l_NrOfScans: {globals.l_NrOfScans}")
         self.One_Measurement()
         
         self.RefMeasBtn.setEnabled(True)
@@ -424,7 +424,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_Measurements = 0
             globals.m_Failures = 0
             self.TimeSinceStartEdt.setText("{0:d}".format(0))
-            self.NrScansEdt.setText("{0:d}".format(0))
+            self.CycleNr.setText("{0:d}".format(0))
             self.NrFailuresEdt.setText("{0:d}".format(0))
         self.StartMeasBtn.setEnabled(False) 
         self.StopMeasBtn.setEnabled(True)
@@ -456,8 +456,16 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         if (self.SingleRBtn.isChecked()): ## added
             globals.AcquisitionMode = "Single" 
-            globals.l_NrOfScans = int(1)
+            # globals.l_NrOfScans = int(1)
             self.worker_meas.func = self.Single_Measurement #here the job of the worker is defined
+
+        if (self.ContinuousRBtn.isChecked()):
+            globals.AcquisitionMode = "Continuous" 
+            if self.NrCyclesEdt.text() == "0":
+                globals.l_NrOfCycles = 10000
+            else:
+                globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
+            self.worker_meas.func = self.Continuous_Measurement #here the job of the worker is defined
 
         if (self.KineticsRBtn.isChecked()):
             globals.AcquisitionMode = "Kinetics"
@@ -466,27 +474,22 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 ## if l_interval < 2
                 ## choose Continuous Mode
 
-            globals.l_NrOfScans = int(self.NrMeasEdt.text())
+            globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
             globals.l_interval = int(self.Interval.text())
             self.worker_meas.func = self.Kinetics_Measurement #here the job of the worker is defined
             ##!!! before start, just in case: TURN OFF LED AND SHOW MESSAGE
 
-        if (self.ContinuousRBtn.isChecked()):
-            globals.AcquisitionMode = "Continuous" 
-            if self.NrMeasEdt.text() == "0":
-                globals.l_NrOfScans = 10000
-            else:
-                globals.l_NrOfScans = int(self.NrMeasEdt.text())
-            self.worker_meas.func = self.Continuous_Measurement #here the job of the worker is defined
-
         if (self.IrrKinRBtn.isChecked()):
+            if Settings.twelvebit_adjusted is None:
+                QMessageBox.critical(self, "LED Control", "No LED (current) chosen")
+            else:
             ##!!! ADD: if LED is not chosen or current is not chosen: stop
             
-            globals.AcquisitionMode = "IrradiationKinetics" 
-            
-            globals.l_NrOfScans = int(self.NrMeasEdt.text())
-            globals.l_interval = int(self.Interval.text())
-            self.worker_meas.func = self.IrradiationKinetics_Measurement #here the job of the worker is defined. 
+                globals.AcquisitionMode = "IrradiationKinetics" 
+                
+                globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
+                globals.l_interval = int(self.Interval.text())
+                self.worker_meas.func = self.IrradiationKinetics_Measurement #here the job of the worker is defined. 
 
         #######################################################################
         self.worker_meas.moveToThread(self.thread_meas) #the workers job is moved from the frontend to the thread in backend
@@ -549,7 +552,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def Continuous_Measurement(self):
         print("=== Continuous_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
-        nummeas = globals.l_NrOfScans
+        nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         globals.m_Measurements = 0
         self.cancelled = False
         self.Shutter_Open()
@@ -574,10 +577,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def Kinetics_Measurement(self):
         print("=== Kinetics_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
-        nummeas = globals.l_NrOfScans
+        nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         globals.m_Measurements = 0
         delay = int(globals.l_interval - globals.delays_total)
         self.cancelled = False
+        ##!!! CHECK TIMING
+        
         
         print(f"===nummeas: {nummeas}")
         for i in range(nummeas):
@@ -607,7 +612,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         '''
         print("=== IrradiationKinetics_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
-        nummeas = globals.l_NrOfScans
+        nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         globals.m_Measurements = 0
         delay = globals.l_interval ## delay is irradiation time (user-defined)
         self.cancelled = False
@@ -699,13 +704,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         print(">> Shutter_Open <<")
 
     def Shutter_Close(self):
-        # time.sleep(delay_b) ##!!! small delay necessary maybe, but ideally command should wait for acquisition to be finished
+        time.sleep(self.delay_beforeShutter_Close) ## short delay between Measure and Close Shutter
         ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
         
         ##!!! ADD TIMESTAMP
         #globals.timestamps_ShutterClose = 
         
-        time.sleep(self.delay_afterShutter_Close) ## short delay between Measure and Close Shutter
+        time.sleep(self.delay_afterShutter_Close) ## short delay after Close Shutter
         
         print(">> Shutter Closed <<")
 
@@ -928,6 +933,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                                               globals.ScopeSpectrum_DarkCorr_doublearray)
                             globals.ScopeSpectrum_DarkSLSCorr = list(globals.ScopeSpectrum_DarkSLSCorr_doublearray) # convert to list
                             
+                            ##!!! CHANGE MEASUREMENT NR HERE (OR IN AUTO-SAVE FUNCTION): add 0s; 0001, 0002, ..., 0118, etc.
+                            
                             self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_{globals.m_Measurements}", globals.ScopeSpectrum)
                             self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
                             self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkSLSCorr)
@@ -966,16 +973,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             self.LastScanEdt.setText("")
                             self.TimePerScanEdt.setText("")
 
-                        l_Seconds = globals.m_DateTime_start.secsTo(QDateTime.currentDateTime()) ## m_DateTime_start set upon clicking StartMeasBtn
+                        l_Seconds = globals.m_DateTime_start.secsTo(QDateTime.currentDateTime()) ## obtain difference in seconds between current and start time
                         self.TimeSinceStartEdt.setText("{0:d}".format(l_Seconds))
-                        self.NrScansEdt.setText("{0:d}".format(globals.m_Measurements))
+                        self.CycleNr.setText("{0:d}".format(globals.m_Measurements))
                         ###########################################
-                        # if (self.KineticsRBtn.isChecked()):
-                        #    self.StartMeasBtn.setEnabled(int(self.NrMeasEdt.text()) == globals.m_Measurements) 
-                               ## enable Start Measurement button when the user-defined #meas (NrMeasEdt) is equal to
-                                   ## the number of measured spectra (globals.m_Measurements)
-                                   ## DON'T NEED IT ANYMORE?
-                        
                         self.update_plot() ## update plot
                     except:
                         print("new data was not handled") ##!!! add error output
@@ -1009,7 +1010,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         ####
         self.DarkCorrChk.setChecked(l_DeviceData.m_StandAlone_m_Meas_m_CorDynDark_m_Enable == 1)
         self.DarkCorrPercEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_CorDynDark_m_ForgetPercentage))
-        self.NrMeasEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Nmsr))                
+        self.NrCyclesEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Nmsr))                
         return
 
     @pyqtSlot()
@@ -1032,7 +1033,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         l_DeviceData.m_StandAlone_m_Meas_m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked()
         l_DeviceData.m_StandAlone_m_Meas_m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text())
         ####
-        l_DeviceData.m_StandAlone_m_Nmsr = int(self.NrMeasEdt.text())
+        l_DeviceData.m_StandAlone_m_Nmsr = int(self.NrCyclesEdt.text())
         # write measurement parameters
         # debug = ctypes.sizeof(l_DeviceData)
         l_Ret = ava.AVS_SetParameter(globals.dev_handle, l_DeviceData)
@@ -1121,9 +1122,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         print(f"self.delay_acq: {self.delay_acq}")
         
         self.delay_afterShutter_Open = 0.5 # seconds
+        self.delay_beforeShutter_Close = 0.1 # seconds
         self.delay_afterShutter_Close = 0.1 # seconds
         
         print(f"self.delay_afterShutter_Open: {self.delay_afterShutter_Open}")
+        print(f"self.delay_beforeShutter_Close: {self.delay_beforeShutter_Close}")
         print(f"self.delay_afterShutter_Close: {self.delay_afterShutter_Close}")
         
         globals.delays_aroundShutter = self.delay_afterShutter_Open + self.delay_afterShutter_Close
@@ -1147,7 +1150,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.measconfig.m_Trigger_m_Mode = 0
         self.InternalTriggerBtn.setChecked(True)
         
-        self.NrMeasEdt.setText("10") ## default nr. measurements
+        self.NrCyclesEdt.setText("10") ## default nr. measurements
         self.Interval.setText("10") # default interval in seconds
         
         globals.AutoSaveFolder = Settings.Default_AutoSaveFolder 

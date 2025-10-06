@@ -62,7 +62,7 @@ def initialise_Arduino():
         pass
     else:
         Settings.arduino = serial.Serial(port = globals.ArduinoCOMport, baudrate=115200, timeout=.1) ## COM port default defined in settings.py
-        time.sleep(1) ## need to wait a bit after opening the communication
+        # time.sleep(1) ## need to wait a bit after opening the communication (if using it immediately after intialisation)
 
 def AdjustMaxCurrent(LED):
     MaxCurrent = Settings.MaxCurrents[LED]
