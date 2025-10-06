@@ -41,7 +41,10 @@ LEDstatus = "OFF"
 
 count = 1
 
-#MODE_LED = ""
-MODE_LED = "TEST" ## use if no Arduino connected (test mode)
+MODE_LED = ""
+# MODE_LED = "TEST" ## use if no Arduino connected (test mode)
 
 Default_AutoSaveFolder = r"user/back-up"
+
+# Default_ArduinoCOMport = 'COM4' ## fibirr laptop
+Default_ArduinoCOMport = 'COM5' ## other laptop

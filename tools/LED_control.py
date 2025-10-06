@@ -22,6 +22,7 @@ GUI:
 import serial ## for communication with Arduino COM port
 import time
 
+import globals
 import user.settings as Settings
 
 ########################################################
@@ -60,9 +61,8 @@ def initialise_Arduino():
     if Settings.MODE_LED == "TEST":
         pass
     else:
-        # Settings.arduino = serial.Serial(port='COM4', baudrate=115200, timeout=.1) ## fibirr laptop
-        Settings.arduino = serial.Serial(port='COM5', baudrate=115200, timeout=.1) ## other laptop
-        time.sleep(2) ## need to wait a bit after opening the communication
+        Settings.arduino = serial.Serial(port = globals.ArduinoCOMport, baudrate=115200, timeout=.1) ## COM port default defined in settings.py
+        time.sleep(1) ## need to wait a bit after opening the communication
 
 def AdjustMaxCurrent(LED):
     MaxCurrent = Settings.MaxCurrents[LED]

@@ -166,37 +166,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         self.delay_acq = 0 ## time that acquisition takes
         ###########################################
-        #### LED Control ####
-        self.selected_LED = None
-        self.percentage = 0 # start with 0%
-        # Settings.twelvebit_max_thisLED = None
-        # Settings.twelvebit_adjusted = None
-        self.current = 0
-        
-        self.delay_beforeLED_ON = 0 ## delay (ms) before turning on LED
-        self.delay_afterLED_OFF = 0 ## delay (ms) after turning off LED
-
-        #### drop-down menu ####
-        self.DropDownBox_LEDs.addItems(list(Settings.MaxCurrents.keys()))
-        self.DropDownBox_LEDs.currentIndexChanged.connect(self.update_dropdown)
-
-        self.LEDPercentageEdt.setText(str(self.percentage)) # 
-        self.LEDPercentageEdt.textChanged.connect(self.update_percentage)
-
-        #### slide bar ####
-        self.horizontalSlider.setMinimum(0)
-        self.horizontalSlider.setMaximum(100)
-        self.horizontalSlider.setValue(self.percentage)
-        self.horizontalSlider.valueChanged.connect(self.update_slider)
-
-        ##!!! ADD: 
-        ## try:
-        LEDControl.initialise_Arduino() ## start communication with Arduino
-        ## except:
-        
-        self.update_dropdown() # Initial calculation
-        self.on_LED_off_manual_clicked() # extra caution
-    
+     
     ###########################################
     ###########################################
     @pyqtSlot()
@@ -335,6 +305,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 # print(f"globals.wavelength: {globals.wavelength}")
                 self.on_ReadEepromBtn_clicked() ## the ReadEepromBtn gets clicked: see def below
                     ## sets integration time and nr. averages to EEPROM default
+                self.StartLEDControl() ## initialise Arduino, etc.
                 self.DefaultSettings() # set default settings
                 dtype = 0
                 dtype = ava.AVS_GetDeviceType(globals.dev_handle)  
@@ -741,6 +712,43 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     ###########################################################################
     ###########################################################################
 
+    def StartLEDControl(self):
+        ''' LED Control '''
+        globals.ArduinoCOMport = Settings.Default_ArduinoCOMport
+        
+        self.selected_LED = None
+        self.percentage = 0 # start with 0%
+        self.current = 0
+        
+        self.delay_beforeLED_ON = 400/1000 ## delay (ms) before turning on LED
+        self.delay_afterLED_OFF = 1300/1000 ## delay (ms) after turning off LED
+        globals.delays_aroundLED = self.delay_beforeLED_ON + self.delay_afterLED_OFF
+
+        #### drop-down menu ####
+        self.DropDownBox_LEDs.addItems(list(Settings.MaxCurrents.keys()))
+        self.DropDownBox_LEDs.currentIndexChanged.connect(self.update_dropdown)
+
+        self.LEDPercentageEdt.setText(str(self.percentage)) # 
+        self.LEDPercentageEdt.textChanged.connect(self.update_percentage)
+
+        #### slide bar ####
+        self.horizontalSlider.setMinimum(0)
+        self.horizontalSlider.setMaximum(100)
+        self.horizontalSlider.setValue(self.percentage)
+        self.horizontalSlider.valueChanged.connect(self.update_slider)
+
+        ##!!! ADD: 
+        ## try:
+        LEDControl.initialise_Arduino() ## start communication with Arduino
+        ## except:
+        
+        self.update_dropdown() # Initial calculation
+        self.on_LED_off_manual_clicked() # extra caution    
+
+    @pyqtSlot()
+    def on_StartLEDControlBtn_clicked(self):
+        self.StartLEDControl()
+
     @pyqtSlot()
     def on_SetLEDsettings_clicked(self):
         self.update_label_CurrentCurrent()
@@ -833,7 +841,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         xydata.to_csv(FileObject,index=False)
         # print(f"{mode} spectrum auto-saved as {FileObject}")
 
-        ##!!! FOR SINGLE MODE: IF FILE ALREADY EXISTS: ADD A NUMBER
+        ##!!! IF FILE ALREADY EXISTS: ADD A NUMBER
 
         self.statusBar.showMessage(f"{globals.MeasurementType} Spectrum auto-saved as {FileObject}")
 
@@ -1110,12 +1118,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.AvgEdt.setText(f"{self.measconfig.m_NrAverages:0d}") ## default # averages
         
         self.delay_acq = (self.measconfig.m_IntegrationTime * self.measconfig.m_NrAverages)/1000 # acquisition time (ms)
-        # self.delay_acq = 2*self.delay_acq ##!!! TESTING
         print(f"self.delay_acq: {self.delay_acq}")
-        
-        self.delay_beforeLED_ON = 400/1000 ## ms
-        self.delay_afterLED_OFF = 1300/1000 ## ms
-        globals.delays_aroundLED = self.delay_beforeLED_ON + self.delay_afterLED_OFF
         
         self.delay_afterShutter_Open = 0.5 # seconds
         self.delay_afterShutter_Close = 0.1 # seconds
@@ -1147,11 +1150,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.NrMeasEdt.setText("10") ## default nr. measurements
         self.Interval.setText("10") # default interval in seconds
         
-        globals.AutoSaveFolder = Settings.Default_AutoSaveFolder
+        globals.AutoSaveFolder = Settings.Default_AutoSaveFolder 
         ##!!! SET DEFAULT
-        
-        # globals.filename = "tests/20250930/TEST"
-        # print(f"DefaultSettings === globals.filename: {globals.filename}")
         
     def DisconnectGui(self):
         self.DetectorEdt.clear()
