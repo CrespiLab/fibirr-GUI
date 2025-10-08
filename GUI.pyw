@@ -360,6 +360,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_DateTime_start = QDateTime.currentDateTime()
             globals.m_SummatedTimeStamps = 0.0
             globals.m_Measurements = 0
+            globals.m_Cycle = 1
             globals.m_Failures = 0
             self.TimeSinceStartEdt.setText("{0:d}".format(0))
             self.CycleNr.setText("{0:d}".format(0))
@@ -392,13 +393,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StartMeasBtn.setEnabled(False) 
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
         ###########################################
-        # globals.l_NrOfScans = int(1) # 1 scan
-        ###########################################
         if (self.RefMeasBtn.isEnabled()):
             print ("on_RefMeasBtn_clicked === RefMeasBtn enabled")
             globals.m_DateTime_start = QDateTime.currentDateTime()
             globals.m_SummatedTimeStamps = 0.0
             globals.m_Measurements = 0
+            globals.m_Cycle = 1
             globals.m_Failures = 0
             self.TimeSinceStartEdt.setText("{0:d}".format(0))
             self.CycleNr.setText("{0:d}".format(0))
@@ -406,7 +406,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.RefMeasBtn.setEnabled(False)
         # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
         
-        # print(f"====== RefMeasBtn ======\nglobals.l_NrOfScans: {globals.l_NrOfScans}")
         self.One_Measurement()
         
         self.RefMeasBtn.setEnabled(True)
@@ -422,12 +421,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_DateTime_start = QDateTime.currentDateTime()
             globals.m_SummatedTimeStamps = 0.0
             globals.m_Measurements = 0
+            globals.m_Cycle = 1
             globals.m_Failures = 0
             self.TimeSinceStartEdt.setText("{0:d}".format(0))
             self.CycleNr.setText("{0:d}".format(0))
             self.NrFailuresEdt.setText("{0:d}".format(0))
-        # self.StartMeasBtn.setEnabled(False) 
-        # self.StopMeasBtn.setEnabled(True)
+
         # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
         
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
@@ -437,10 +436,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             ## if Ref is None:
                 ## QMessageBox.warning(self, "Error", "Wrong input percentage")
 
-        print(f"globals.delays_total: {globals.delays_total}")
-            
         ######################################################################
-        ### added QThread functionality ###
+        ### QThread functionality ###
         try:
             if self.thread_meas.isRunning():
                 print("Shutting down running thread.")
@@ -526,6 +523,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             time.sleep(0.001)
         if globals.dataready == True:
             self.newdata.emit(globals.dev_handle, ret)
+            # print(f"sleeping after newdata emit for {self.delay_acq} s")
             time.sleep(self.delay_acq)
         
         if globals.AcquisitionMode != "Continuous":
@@ -558,7 +556,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StartMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(True)
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
-        globals.m_Measurements = 0
         self.cancelled = False
         self.Shutter_Open()
         
@@ -584,13 +581,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StartMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(True)
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
-        globals.m_Measurements = 0
-        delay = int(globals.l_interval - globals.delays_total)
+        print(f"globals.delays_aroundShutter: {globals.delays_aroundShutter}")
+        delay = int(globals.l_interval - globals.delays_aroundShutter)
         self.cancelled = False
-        ##!!! CHECK TIMING
         
-        
-        print(f"===nummeas: {nummeas}")
+        print(f"nummeas: {nummeas}")
         for i in range(nummeas):
             if self.cancelled == True: ## break loop if Stop button was pressed
                 print("Stopped Kinetic Measurement")
@@ -602,6 +597,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                     print(f"Waiting for {delay} s")
                     for t in range(delay):
                         time.sleep(1)
+                        print(f"Slept for 1 second. t = {t}")
                         if self.cancelled == True:
                             break
                     print(f"Delay {delay} s done")
@@ -621,8 +617,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StartMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(True)
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
-        globals.m_Measurements = 0
+        
+        print(f"globals.delays_total: {globals.delays_total}")
+        
         delay = globals.l_interval ## delay is irradiation time (user-defined)
+        ##!!! MAYBE CHANGE BACK TO DELAY WITH DELAYS_TOTAL SUBTRACTED
+        
         self.cancelled = False
         print(f"===nummeas: {nummeas}\n===LED {self.selected_LED}, {self.current} mA ({self.percentage} %)")
 
@@ -709,7 +709,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 
         time.sleep(self.delay_afterShutter_Open) ## short delay between Open Shutter and Measure
         
-        print(">> Shutter_Open <<")
+        # print(">> Shutter_Open <<")
 
     def Shutter_Close(self):
         time.sleep(self.delay_beforeShutter_Close) ## short delay between Measure and Close Shutter
@@ -720,7 +720,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         time.sleep(self.delay_afterShutter_Close) ## short delay after Close Shutter
         
-        print(">> Shutter Closed <<")
+        # print(">> Shutter Closed <<")
 
     ###########################################################################
     ###########################################################################
@@ -877,8 +877,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 if (lerror == 0): # normal measurements
                     self.statusBar.showMessage("Meas.Status: success")
                     try:
-                        print(f"globals.dataready: {globals.dataready}")
+                        # print(f"globals.dataready: {globals.dataready}")
                         globals.m_Measurements += 1
+                        globals.m_Cycle += 1
                         timestamp = 0
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
                         # ##################
@@ -952,7 +953,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             ########## ABSORBANCE MODE ##########
                             #####################################
                             if (self.Mode_Absorbance.isChecked()): ## Absorbance mode
-                                print("Absorbance Mode")
                                 globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
                                 globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
                                 self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_{globals.m_Measurements}", globals.AbsSpectrum)
@@ -982,13 +982,16 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             self.LastScanEdt.setText("")
                             self.TimePerScanEdt.setText("")
 
-                        l_Seconds = globals.m_DateTime_start.secsTo(QDateTime.currentDateTime()) ## obtain difference in seconds between current and start time
-                        self.TimeSinceStartEdt.setText("{0:d}".format(l_Seconds))
-                        self.CycleNr.setText("{0:d}".format(globals.m_Measurements))
+                        l_MilliSeconds = globals.m_DateTime_start.msecsTo(QDateTime.currentDateTime()) ## difference in milliseconds between current and start time
+                        l_Seconds = l_MilliSeconds/1000
+                        print(f"handle_newdata timestamp: {l_Seconds} (s)")
+                        
+                        self.TimeSinceStartEdt.setText(f"{l_Seconds:.3f}")
+                        self.CycleNr.setText(f"{globals.m_Cycle}")
                         ###########################################
                         self.update_plot() ## update plot
                     except:
-                        print("new data was not handled") ##!!! add error output
+                        print("new data was not handled completely") ##!!! add error output
                     return
                     ######################################################
         else:
@@ -1117,9 +1120,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.measconfig.m_StopPixel = globals.stoppixel
         
         l_NanoSec = float(self.IntDelayEdt.text())
-        self.measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0)
-        print(f"self.measconfig.m_IntegrationDelay: {self.measconfig.m_IntegrationDelay}")
-        
+        self.measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0) ## from Avantes
         self.measconfig.m_IntegrationTime = 3 # default integration time (ms)
         print(f"self.measconfig.m_IntegrationTime: {self.measconfig.m_IntegrationTime}")
         self.IntTimeEdt.setText(f"{self.measconfig.m_IntegrationTime:0.1f}") 
@@ -1127,16 +1128,16 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.measconfig.m_NrAverages = 100
         self.AvgEdt.setText(f"{self.measconfig.m_NrAverages:0d}") ## default # averages
         
-        self.delay_acq = (self.measconfig.m_IntegrationTime * self.measconfig.m_NrAverages)/1000 # acquisition time (ms)
-        print(f"self.delay_acq: {self.delay_acq}")
+        self.delay_acq = (self.measconfig.m_IntegrationTime * self.measconfig.m_NrAverages)/1000 # acquisition time (s)
+        print(f"self.delay_acq: {self.delay_acq} s")
         
         self.delay_afterShutter_Open = 0.5 # seconds
         self.delay_beforeShutter_Close = 0.1 # seconds
         self.delay_afterShutter_Close = 0.1 # seconds
         
-        print(f"self.delay_afterShutter_Open: {self.delay_afterShutter_Open}")
-        print(f"self.delay_beforeShutter_Close: {self.delay_beforeShutter_Close}")
-        print(f"self.delay_afterShutter_Close: {self.delay_afterShutter_Close}")
+        print(f"self.delay_afterShutter_Open: {self.delay_afterShutter_Open} s")
+        print(f"self.delay_beforeShutter_Close: {self.delay_beforeShutter_Close} s")
+        print(f"self.delay_afterShutter_Close: {self.delay_afterShutter_Close} s")
         
         globals.delays_aroundShutter = self.delay_afterShutter_Open + self.delay_afterShutter_Close
         globals.delays_total = globals.delays_aroundLED + globals.delays_aroundShutter
@@ -1230,8 +1231,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         Settings.twelvebit_adjusted = str(Settings.twelvebit_adjusted_int)
         print(f"update_calculation twelvebit_adjusted: {Settings.twelvebit_adjusted}")
         self.current = round((int(self.percentage) / 100) * self.MaxCurrent)
-        print(f"self.current: {self.current}")
-        print(f"self.percentage: {self.percentage}")
 
     def update_label_CurrentCurrent(self):
         if self.current is None:
