@@ -31,7 +31,8 @@ MaxCurrent_default = 1200 ## mA
 ###############################################################################
 
 twelvebit_max_thisLED = None
-twelvebit_adjusted = None
+twelvebit_adjusted_int = 0
+twelvebit_adjusted = ''
 
 setLEDsettings = None
 

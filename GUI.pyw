@@ -426,8 +426,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.TimeSinceStartEdt.setText("{0:d}".format(0))
             self.CycleNr.setText("{0:d}".format(0))
             self.NrFailuresEdt.setText("{0:d}".format(0))
-        self.StartMeasBtn.setEnabled(False) 
-        self.StopMeasBtn.setEnabled(True)
+        # self.StartMeasBtn.setEnabled(False) 
+        # self.StopMeasBtn.setEnabled(True)
         # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
         
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
@@ -460,7 +460,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.worker_meas.func = self.Single_Measurement #here the job of the worker is defined
 
         if (self.ContinuousRBtn.isChecked()):
-            globals.AcquisitionMode = "Continuous" 
+            globals.AcquisitionMode = "Cont" 
             if self.NrCyclesEdt.text() == "0":
                 globals.l_NrOfCycles = 10000
             else:
@@ -468,7 +468,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.worker_meas.func = self.Continuous_Measurement #here the job of the worker is defined
 
         if (self.KineticsRBtn.isChecked()):
-            globals.AcquisitionMode = "Kinetics"
+            globals.AcquisitionMode = "Kin"
             
             ##!!! ADD WARNING:
                 ## if l_interval < 2
@@ -477,29 +477,32 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
             globals.l_interval = int(self.Interval.text())
             self.worker_meas.func = self.Kinetics_Measurement #here the job of the worker is defined
+            
             ##!!! before start, just in case: TURN OFF LED AND SHOW MESSAGE
 
         if (self.IrrKinRBtn.isChecked()):
-            if Settings.twelvebit_adjusted is None:
-                QMessageBox.critical(self, "LED Control", "No LED (current) chosen")
-            else:
-            ##!!! ADD: if LED is not chosen or current is not chosen: stop
-            
-                globals.AcquisitionMode = "IrradiationKinetics" 
-                
+            if Settings.twelvebit_adjusted_int == 0:
+                QMessageBox.critical(self, "LED Control", "No or wrong LED current chosen")
+            else:            
+                globals.AcquisitionMode = "IrrKin" 
                 globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
                 globals.l_interval = int(self.Interval.text())
+                
+                #!!! MAKE SLIDER AND PERCENTAGE FIELD INACTIVE DURING MEASUREMENT
+                
                 self.worker_meas.func = self.IrradiationKinetics_Measurement #here the job of the worker is defined. 
 
         #######################################################################
-        self.worker_meas.moveToThread(self.thread_meas) #the workers job is moved from the frontend to the thread in backend
-        self.thread_meas.started.connect(self.worker_meas.run) # when the thread is started, the worker runs
-        self.worker_meas.finished.connect(self.thread_meas.quit) # when the worker is finished, the thread is quit
-        self.worker_meas.finished.connect(self.worker_meas.deleteLater)
-        self.thread_meas.finished.connect(self.thread_meas.deleteLater)
-        self.thread_meas.start() #here the thread is actually started
-
-        print("Finished thread setup.")
+        if self.worker_meas.func is not None:
+            self.worker_meas.moveToThread(self.thread_meas) #the workers job is moved from the frontend to the thread in backend
+            self.thread_meas.started.connect(self.worker_meas.run) # when the thread is started, the worker runs
+            self.worker_meas.finished.connect(self.thread_meas.quit) # when the worker is finished, the thread is quit
+            self.worker_meas.finished.connect(self.worker_meas.deleteLater)
+            self.thread_meas.finished.connect(self.thread_meas.deleteLater)
+            self.thread_meas.start() #here the thread is actually started
+            print("Finished thread setup.")
+        else:
+            print("self.worker_meas.func is None")
         return
 
 ##!!! maybe make a function for the dark measurement
@@ -535,6 +538,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def Single_Measurement(self):
         print("=== Single_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
+        self.StopMeasBtn.setEnabled(True)
         self.cancelled = False
 
         if self.cancelled == True: ## break loop if Stop button was pressed
@@ -552,6 +556,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def Continuous_Measurement(self):
         print("=== Continuous_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
+        self.StopMeasBtn.setEnabled(True)
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         globals.m_Measurements = 0
         self.cancelled = False
@@ -577,6 +582,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def Kinetics_Measurement(self):
         print("=== Kinetics_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
+        self.StopMeasBtn.setEnabled(True)
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         globals.m_Measurements = 0
         delay = int(globals.l_interval - globals.delays_total)
@@ -606,12 +612,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     @pyqtSlot()
     def IrradiationKinetics_Measurement(self):
-        ''' The interval defined by the user is used for the delay,
+        ''' 
+        The interval defined by the user is used for the delay,
             i.e. it is the actual irradiation time.
-            There are some delays around spectral acquisition.
+        There are some delays around spectral acquisition.
         '''
         print("=== IrradiationKinetics_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
+        self.StopMeasBtn.setEnabled(True)
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         globals.m_Measurements = 0
         delay = globals.l_interval ## delay is irradiation time (user-defined)
@@ -756,6 +764,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     @pyqtSlot()
     def on_SetLEDsettings_clicked(self):
+        self.update_calculation()
         self.update_label_CurrentCurrent()
         self.update_label_CurrentPercentage()
 
@@ -774,7 +783,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     def LED_on_manual_warning(self, i):
         if i.text() == "&Yes":
-            if Settings.twelvebit_adjusted is None:
+            if Settings.twelvebit_adjusted_int == 0:
                 QMessageBox.warning(self, "Error", "Wrong input percentage")
                 return
             self.turnLED_ON()
@@ -1204,25 +1213,25 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def update_slider(self):
         self.percentage = self.horizontalSlider.value()
         self.LEDPercentageEdt.setText(str(self.percentage)) # 
-        self.update_calculation()
 
     def update_percentage(self):
         if self.LEDPercentageEdt.text() == '':
-            self.current = ''
-            Settings.twelvebit_adjusted = None
+            self.percentage = 0
         elif 0 <= int(self.LEDPercentageEdt.text()) <= 100:
             self.percentage = int(self.LEDPercentageEdt.text())  # Convert the input to an integer
             self.horizontalSlider.setValue(self.percentage)
-            self.update_calculation()
         else:
-            self.current = "Wrong Percentage"
-            Settings.twelvebit_adjusted = None
+            self.percentage = 0
+        print(f"updated percentage: {self.percentage}")
 
     def update_calculation(self):
-        Settings.twelvebit_adjusted = str(LEDControl.percent_to_12bit(Settings.twelvebit_max_thisLED,
-                                                                      int(self.percentage)))
+        Settings.twelvebit_adjusted_int = LEDControl.percent_to_12bit(Settings.twelvebit_max_thisLED,
+                                                                      int(self.percentage))
+        Settings.twelvebit_adjusted = str(Settings.twelvebit_adjusted_int)
         print(f"update_calculation twelvebit_adjusted: {Settings.twelvebit_adjusted}")
         self.current = round((int(self.percentage) / 100) * self.MaxCurrent)
+        print(f"self.current: {self.current}")
+        print(f"self.percentage: {self.percentage}")
 
     def update_label_CurrentCurrent(self):
         if self.current is None:
