@@ -58,6 +58,7 @@ Improve code:
 import sys
 import ctypes
 import time
+import serial ## for communication with Arduino COM port
 
 import numpy as np
 import pandas as pd
@@ -102,7 +103,7 @@ class Worker(QObject):
 
 class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     timer = QTimer() 
-    SPECTR_LIST_COLUMN_COUNT = 5
+    SPECTR_LIST_COLUMN_COUNT = 4
     newdata = pyqtSignal(int, int) ## define new signal as a class attribute # (int,int) for callback
         ## is used below in __init__
     cancel = pyqtSignal()
@@ -123,7 +124,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.SpectrometerList.setColumnWidth(1,200)
         self.SpectrometerList.setColumnWidth(2,175)
         self.SpectrometerList.setColumnWidth(3,150)
-        self.SpectrometerList.setColumnWidth(4,150)
         self.UpdateListBtn.setEnabled(False)
         self.ActivateBtn.setEnabled(False)
         self.DeactivateBtn.setEnabled(False)
@@ -480,6 +480,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if (self.IrrKinRBtn.isChecked()):
             if Settings.twelvebit_adjusted_int == 0:
                 QMessageBox.critical(self, "LED Control", "No or wrong LED current chosen")
+            elif self.selected_LED is None:
+                QMessageBox.critical(self, "LED Control", "No LED chosen")
             else:            
                 globals.AcquisitionMode = "IrrKin" 
                 globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
@@ -750,13 +752,17 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.horizontalSlider.setValue(self.percentage)
         self.horizontalSlider.valueChanged.connect(self.update_slider)
 
-        ##!!! ADD: 
-        ## try:
-        LEDControl.initialise_Arduino() ## start communication with Arduino
-        ## except:
-        
-        self.update_dropdown() # Initial calculation
-        self.on_LED_off_manual_clicked() # extra caution    
+        try:
+            LEDControl.initialise_Arduino() ## start communication with Arduino
+            self.update_dropdown() # Initial calculation
+            self.on_LED_off_manual_clicked() # extra caution
+            self.SpectrometerList.setItem(0, 3, QTableWidgetItem("SUCCESS")) 
+        except serial.serialutil.SerialException as e:
+            QMessageBox.critical(self, "LED INITIALISATION FAILED", f"{e}")
+            self.SpectrometerList.setItem(0, 3, QTableWidgetItem("FAIL")) 
+        except:
+            QMessageBox.critical(self, "LED INITIALISATION FAILED", "unkown error")
+            self.SpectrometerList.setItem(0, 3, QTableWidgetItem("FAIL")) 
 
     @pyqtSlot()
     def on_StartLEDControlBtn_clicked(self):
@@ -990,8 +996,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         self.CycleNr.setText(f"{globals.m_Cycle}")
                         ###########################################
                         self.update_plot() ## update plot
+                    except (ValueError, RuntimeError, TypeError, NameError) as e:
+                        print(f"new data was not handled completely\n   Type of Exception: {type(e)}\n   Message: {e}")
                     except:
-                        print("new data was not handled completely") ##!!! add error output
+                        print("new data was not handled completely (unknown error)")
                     return
                     ######################################################
         else:

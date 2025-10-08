@@ -44,7 +44,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="CommunicationTab">
      <attribute name="title">
@@ -240,7 +240,7 @@
        <number>5</number>
       </property>
       <property name="columnCount">
-       <number>5</number>
+       <number>4</number>
       </property>
       <row/>
       <row/>
@@ -264,12 +264,7 @@
       </column>
       <column>
        <property name="text">
-        <string>Spectrometer IP Address</string>
-       </property>
-      </column>
-      <column>
-       <property name="text">
-        <string>Connected to</string>
+        <string>LED Initialisation</string>
        </property>
       </column>
      </widget>
