@@ -13,6 +13,9 @@
 - [ ] Add plot: live trace of Abs at chosen wavelength
 - [ ] Add plot: latest recorded spectra during (irradiation) kinetics measurement (load from disk)
 - [ ] Add (auto-)save options
-- [ ] Add and fix Measurement Statistics: time passed; nr of measurements done; etc.
+  - [x] Option: folder for auto-saving of spectra
+  - [ ] Option: choose name of savefile
+
 
 ## Completed ✓
+- [x] Add and fix Measurement Statistics: time passed; nr of measurements done; etc.
