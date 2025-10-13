@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Settings for LEDs
+All are Fiber-Coupled LEDs obtained from ThorLabs
 """
 
 ###############################################################################
@@ -13,7 +14,9 @@ MaxCurrents = {
     '340 nm': 600,
 	'365 nm': 1200,
     '395 nm': 1200,
+    '415 nm': 1200, ## actually 1500 mA, but driver max is 1200 mA
     '455 nm': 1000,
+    '470 nm': 1000,
     '505 nm': 1000,
     '530 nm': 1000,
     '625 nm': 1000,

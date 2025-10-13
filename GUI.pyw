@@ -147,6 +147,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.Mode_Scope.setChecked(True)
         self.Mode_Absorbance.setChecked(False)
         ###########################################
+        self.SingleRBtn.toggled.connect(self.handle_radio_selection)
+        self.ContinuousRBtn.toggled.connect(self.handle_radio_selection)
+        self.KineticsRBtn.toggled.connect(self.handle_radio_selection)
+        self.IrrKinRBtn.toggled.connect(self.handle_radio_selection)
+        self.handle_radio_selection()
+        
+        self.ContinuousRBtn.setEnabled(False) ##!!! TURN ON WHEN FUNCTION IS READY
+        ###########################################
         self.SpectrometerList.clicked.connect(self.on_SpectrometerList_clicked)
 #       self.OpenCommBtn.clicked.connect(self.on_OpenCommBtn_clicked)
     #       for buttons, do not use explicit connect together with the on_ notation, or you will get
@@ -362,9 +370,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_Measurements = 0
             globals.m_Cycle = 1
             globals.m_Failures = 0
-            self.TimeSinceStartEdt.setText("{0:d}".format(0))
-            self.CycleNr.setText("{0:d}".format(0))
-            self.NrFailuresEdt.setText("{0:d}".format(0))
+            self.label_TimeSinceStart.setText("{0:d}".format(0))
+            self.label_CurrentCycleNr.setText("{0:d}".format(0))
+            self.label_NrFailures.setText("{0:d}".format(0))
         self.DarkMeasBtn.setEnabled(False) 
 
         # print(f"globals.m_Measurements: {globals.m_Measurements}")
@@ -400,9 +408,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_Measurements = 0
             globals.m_Cycle = 1
             globals.m_Failures = 0
-            self.TimeSinceStartEdt.setText("{0:d}".format(0))
-            self.CycleNr.setText("{0:d}".format(0))
-            self.NrFailuresEdt.setText("{0:d}".format(0))
+            self.label_TimeSinceStart.setText("{0:d}".format(0))
+            self.label_CurrentCycleNr.setText("{0:d}".format(0))
+            self.label_NrFailures.setText("{0:d}".format(0))
         self.RefMeasBtn.setEnabled(False)
         # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
         
@@ -423,9 +431,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_Measurements = 0
             globals.m_Cycle = 1
             globals.m_Failures = 0
-            self.TimeSinceStartEdt.setText("{0:d}".format(0))
-            self.CycleNr.setText("{0:d}".format(0))
-            self.NrFailuresEdt.setText("{0:d}".format(0))
+            self.label_TimeSinceStart.setText("{0:d}".format(0))
+            self.label_CurrentCycleNr.setText("{0:d}".format(0))
+            self.label_NrFailures.setText("{0:d}".format(0))
 
         # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
         
@@ -472,7 +480,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 ## choose Continuous Mode
 
             globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
-            globals.l_interval = int(self.Interval.text())
+            globals.l_interval = int(self.IntervalEdt.text())
             self.worker_meas.func = self.Kinetics_Measurement #here the job of the worker is defined
             
             ##!!! before start, just in case: TURN OFF LED AND SHOW MESSAGE
@@ -485,7 +493,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             else:            
                 globals.AcquisitionMode = "IrrKin" 
                 globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
-                globals.l_interval = int(self.Interval.text())
+                globals.l_interval = int(self.IntervalEdt.text())
                 
                 #!!! MAKE SLIDER AND PERCENTAGE FIELD INACTIVE DURING MEASUREMENT
                 
@@ -773,6 +781,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.update_calculation()
         self.update_label_CurrentCurrent()
         self.update_label_CurrentPercentage()
+        self.update_label_CurrentLED()
 
     @pyqtSlot()
     def on_LED_on_manual_clicked(self):
@@ -885,7 +894,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                     try:
                         # print(f"globals.dataready: {globals.dataready}")
                         globals.m_Measurements += 1
-                        globals.m_Cycle += 1
                         timestamp = 0
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
                         # ##################
@@ -905,21 +913,22 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             self.auto_save(savefolder, "Ref_DarkCorr", globals.RefSpectrum_DarkCorr)
                             
                             #####################################
-                            '''
-                            Stray Light Suppression (SLS)
-                            Need the ctypes double-array spectrum as input for the function
-                                AVS_SuppressStrayLight
-                            Tested on spectrometer that has SLS feature
-                            '''
-                            ArrayType = ctypes.c_double * 4096 ## ctypes array
-                            globals.RefSpectrum_DarkCorr_doublearray = ArrayType(*globals.RefSpectrum_DarkCorr) ## convert list to ctypes array
-                            
-                            SLSfactor = 1
-                            ret_code, globals.RefSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
-                                                              SLSfactor,
-                                                              globals.RefSpectrum_DarkCorr_doublearray)
-                            globals.RefSpectrum_DarkSLSCorr = list(globals.RefSpectrum_DarkSLSCorr_doublearray) # convert to list
-                            self.auto_save(savefolder, "Ref_DarkSLSCorr", globals.RefSpectrum_DarkSLSCorr)
+                            if self.SLSCorrCheck.isChecked():
+                                '''
+                                Stray Light Suppression (SLS)
+                                Need the ctypes double-array spectrum as input for the function
+                                    AVS_SuppressStrayLight
+                                Tested on spectrometer that has SLS feature
+                                '''
+                                ArrayType = ctypes.c_double * 4096 ## ctypes array
+                                globals.RefSpectrum_DarkCorr_doublearray = ArrayType(*globals.RefSpectrum_DarkCorr) ## convert list to ctypes array
+                                
+                                SLSfactor = 1
+                                ret_code, globals.RefSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
+                                                                  SLSfactor,
+                                                                  globals.RefSpectrum_DarkCorr_doublearray)
+                                globals.RefSpectrum_DarkSLSCorr = list(globals.RefSpectrum_DarkSLSCorr_doublearray) # convert to list
+                                self.auto_save(savefolder, "Ref_DarkSLSCorr", globals.RefSpectrum_DarkSLSCorr)
                             
                             ##!!! SAVE ALL REFERENCE SPECTRA IN ONE FILE
 
@@ -929,39 +938,45 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             
                             #### Dark Correction ####
                             globals.ScopeSpectrum_DarkCorr = [globals.ScopeSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
+
+                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_{globals.m_Measurements}", globals.ScopeSpectrum)
+                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
                             
                             #####################################
                             ############### SLS #################
                             #####################################
-                            '''
-                            Stray Light Suppression (SLS)
-                            Need the ctypes double-array spectrum as input for the function
-                                AVS_SuppressStrayLight
-                            Tested on spectrometer that has SLS feature
-                            '''
-                            ArrayType = ctypes.c_double * 4096 ## ctypes array
-                            globals.ScopeSpectrum_DarkCorr_doublearray = ArrayType(*globals.ScopeSpectrum_DarkCorr) ## convert list to ctypes array
-
-                            ##!!! MAKE INTO A FUNCTION
-                            SLSfactor = 1
-                            ret_code, globals.ScopeSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
-                                                              SLSfactor,
-                                                              globals.ScopeSpectrum_DarkCorr_doublearray)
-                            globals.ScopeSpectrum_DarkSLSCorr = list(globals.ScopeSpectrum_DarkSLSCorr_doublearray) # convert to list
-                            
-                            ##!!! CHANGE MEASUREMENT NR HERE (OR IN AUTO-SAVE FUNCTION): add 0s; 0001, 0002, ..., 0118, etc.
-                            
-                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_{globals.m_Measurements}", globals.ScopeSpectrum)
-                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
-                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkSLSCorr)
-                            
+                            if self.SLSCorrCheck.isChecked():
+                                '''
+                                Stray Light Suppression (SLS)
+                                Need the ctypes double-array spectrum as input for the function
+                                    AVS_SuppressStrayLight
+                                Tested on spectrometer that has SLS feature
+                                '''
+                                ArrayType = ctypes.c_double * 4096 ## ctypes array
+                                globals.ScopeSpectrum_DarkCorr_doublearray = ArrayType(*globals.ScopeSpectrum_DarkCorr) ## convert list to ctypes array
+    
+                                ##!!! MAKE INTO A FUNCTION
+                                SLSfactor = 1
+                                ret_code, globals.ScopeSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
+                                                                  SLSfactor,
+                                                                  globals.ScopeSpectrum_DarkCorr_doublearray)
+                                globals.ScopeSpectrum_DarkSLSCorr = list(globals.ScopeSpectrum_DarkSLSCorr_doublearray) # convert to list
+                                
+                                ##!!! CHANGE MEASUREMENT NR HERE (OR IN AUTO-SAVE FUNCTION): add 0s; 0001, 0002, ..., 0118, etc.
+                                self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkSLSCorr)
+                        
                             #####################################
                             ########## ABSORBANCE MODE ##########
                             #####################################
                             if (self.Mode_Absorbance.isChecked()): ## Absorbance mode
-                                globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
-                                globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
-                                self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_{globals.m_Measurements}", globals.AbsSpectrum)
+                                if self.SLSCorrCheck.isChecked():
+                                    globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
+                                    globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
+                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_{globals.m_Measurements}", globals.AbsSpectrum)
+                                else:
+                                    globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
+                                    globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
+                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_noSLS_{globals.m_Measurements}", globals.AbsSpectrum)
 
                         #####################################
                         else:
@@ -981,19 +996,20 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         
                         if (globals.m_Measurements > 1):
                             globals.m_SummatedTimeStamps += l_Dif
-                            self.LastScanEdt.setText("{0:.3f}".format(l_Dif/100.0))  # in millisec
+                            self.label_LastScan.setText("{0:.3f}".format(l_Dif/100.0))  # in millisec
                             timeperscan = float(globals.m_SummatedTimeStamps) / float(100.0 * (globals.m_Measurements - 1))
-                            self.TimePerScanEdt.setText("{0:.3f}".format(timeperscan))
+                            self.label_TimePerScan.setText("{0:.3f}".format(timeperscan))
                         else:
-                            self.LastScanEdt.setText("")
-                            self.TimePerScanEdt.setText("")
+                            self.label_LastScan.setText("")
+                            self.label_TimePerScan.setText("")
 
                         l_MilliSeconds = globals.m_DateTime_start.msecsTo(QDateTime.currentDateTime()) ## difference in milliseconds between current and start time
                         l_Seconds = l_MilliSeconds/1000
                         print(f"handle_newdata timestamp: {l_Seconds} (s)")
                         
-                        self.TimeSinceStartEdt.setText(f"{l_Seconds:.3f}")
-                        self.CycleNr.setText(f"{globals.m_Cycle}")
+                        self.label_TimeSinceStart.setText(f"{l_Seconds:.3f}")
+                        self.label_CurrentCycleNr.setText(f"{globals.m_Cycle}")
+                        globals.m_Cycle += 1
                         ###########################################
                         self.update_plot() ## update plot
                     except (ValueError, RuntimeError, TypeError, NameError) as e:
@@ -1005,7 +1021,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         else:
             self.statusBar.showMessage("Meas.Status: failed. {0:d})".format(lerror))
             globals.m_Failures += 1
-        self.NrFailuresEdt.setText("{0:d}".format(globals.m_Failures))    
+        self.label_NrFailures.setText("{0:d}".format(globals.m_Failures))    
         return
 
     @pyqtSlot()
@@ -1150,9 +1166,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.delays_aroundShutter = self.delay_afterShutter_Open + self.delay_afterShutter_Close
         globals.delays_total = globals.delays_aroundLED + globals.delays_aroundShutter
         
+        ##!!! move setting of measconfig parameters to Activate function (probably)
         self.measconfig.m_CorDynDark_m_Enable = 1
         self.DarkCorrChk.setChecked(True)
-
         self.measconfig.m_CorDynDark_m_ForgetPercentage = 100
         '''
         From AvaSpec Libary Manual, Section 3.4.6:
@@ -1162,14 +1178,19 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         100.
         '''
         self.DarkCorrPercEdt.setText(f"{self.measconfig.m_CorDynDark_m_ForgetPercentage:0d}")
-        
+        self.SLSCorrCheck.setChecked(True) ## Stray Light Suppression/Correction
+
+        #######################################################################        
         self.measconfig.m_SaturationDetection = 1
-        self.SatDetEdt.setText(f"{self.measconfig.m_SaturationDetection:0d}")
+        if self.measconfig.m_SaturationDetection == 1:
+            self.SatDetEdt.setText("on")
+        elif self.measconfig.m_SaturationDetection == 0:
+            self.SatDetEdt.setText("off")
         self.measconfig.m_Trigger_m_Mode = 0
         self.InternalTriggerBtn.setChecked(True)
         
         self.NrCyclesEdt.setText("10") ## default nr. measurements
-        self.Interval.setText("10") # default interval in seconds
+        self.IntervalEdt.setText("10") # default interval in seconds
         
         globals.AutoSaveFolder = Settings.Default_AutoSaveFolder 
         ##!!! SET DEFAULT
@@ -1248,9 +1269,39 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def update_label_CurrentPercentage(self):
         self.Label_CurrentPercentage.setText(str(self.percentage))
     
+    def update_label_CurrentLED(self):
+        self.Label_CurrentLED.setText(str(self.selected_LED))
+    
     def update_label_LEDstatus(self):
         self.LED_DisplayStatus.setText(Settings.LEDstatus)
 
+    ###########################################################################
+    ###########################################################################
+    ###########################################################################
+    
+    def handle_radio_selection(self):
+        ''' Radiobutton selection influences available additional settings '''
+        if self.SingleRBtn.isChecked():
+            self.NrCyclesEdt.setEnabled(False)
+            self.label_NrCyclesEdt.setEnabled(False)
+            self.IntervalEdt.setEnabled(False)
+            self.label_IntervalEdt.setEnabled(False)
+        if self.ContinuousRBtn.isChecked():
+            self.NrCyclesEdt.setEnabled(True)
+            self.label_NrCyclesEdt.setEnabled(True)
+            self.IntervalEdt.setEnabled(False)
+            self.label_IntervalEdt.setEnabled(False)
+        if self.KineticsRBtn.isChecked():
+            self.NrCyclesEdt.setEnabled(True)
+            self.label_NrCyclesEdt.setEnabled(True)
+            self.IntervalEdt.setEnabled(True)
+            self.label_IntervalEdt.setEnabled(True)
+        if self.IrrKinRBtn.isChecked():
+            self.NrCyclesEdt.setEnabled(True)
+            self.label_NrCyclesEdt.setEnabled(True)
+            self.IntervalEdt.setEnabled(True)
+            self.label_IntervalEdt.setEnabled(True)
+            
     ###########################################################################
     ###########################################################################
     ###########################################################################

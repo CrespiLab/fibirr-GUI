@@ -44,7 +44,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="CommunicationTab">
      <attribute name="title">
@@ -557,7 +557,7 @@
          <string>Single</string>
         </property>
        </widget>
-       <widget class="QLineEdit" name="Interval">
+       <widget class="QLineEdit" name="IntervalEdt">
         <property name="geometry">
          <rect>
           <x>20</x>
@@ -567,7 +567,7 @@
          </rect>
         </property>
        </widget>
-       <widget class="QLabel" name="label_29">
+       <widget class="QLabel" name="label_NrCyclesEdt">
         <property name="geometry">
          <rect>
           <x>90</x>
@@ -580,7 +580,7 @@
          <string>Nr of Cycles</string>
         </property>
        </widget>
-       <widget class="QLabel" name="label_30">
+       <widget class="QLabel" name="label_IntervalEdt">
         <property name="geometry">
          <rect>
           <x>90</x>
@@ -868,9 +868,9 @@
         <property name="geometry">
          <rect>
           <x>20</x>
-          <y>140</y>
+          <y>120</y>
           <width>221</width>
-          <height>71</height>
+          <height>91</height>
          </rect>
         </property>
         <property name="title">
@@ -880,7 +880,7 @@
          <property name="geometry">
           <rect>
            <x>190</x>
-           <y>40</y>
+           <y>60</y>
            <width>16</width>
            <height>25</height>
           </rect>
@@ -905,7 +905,7 @@
          <property name="geometry">
           <rect>
            <x>120</x>
-           <y>20</y>
+           <y>40</y>
            <width>61</width>
            <height>20</height>
           </rect>
@@ -921,7 +921,7 @@
          <property name="geometry">
           <rect>
            <x>10</x>
-           <y>20</y>
+           <y>40</y>
            <width>100</width>
            <height>16</height>
           </rect>
@@ -952,7 +952,7 @@
          <property name="geometry">
           <rect>
            <x>120</x>
-           <y>40</y>
+           <y>60</y>
            <width>61</width>
            <height>20</height>
           </rect>
@@ -965,7 +965,7 @@
          <property name="geometry">
           <rect>
            <x>190</x>
-           <y>20</y>
+           <y>40</y>
            <width>16</width>
            <height>25</height>
           </rect>
@@ -990,7 +990,7 @@
          <property name="geometry">
           <rect>
            <x>10</x>
-           <y>40</y>
+           <y>60</y>
            <width>100</width>
            <height>16</height>
           </rect>
@@ -1014,12 +1014,59 @@
           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
          </property>
         </widget>
+        <widget class="QLineEdit" name="Label_CurrentLED">
+         <property name="geometry">
+          <rect>
+           <x>120</x>
+           <y>20</y>
+           <width>61</width>
+           <height>20</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_11">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>20</y>
+           <width>100</width>
+           <height>16</height>
+          </rect>
+         </property>
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>100</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="layoutDirection">
+          <enum>Qt::LeftToRight</enum>
+         </property>
+         <property name="text">
+          <string>Current LED:</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+         </property>
+        </widget>
        </widget>
        <widget class="QPushButton" name="SetLEDsettings">
         <property name="geometry">
          <rect>
           <x>80</x>
-          <y>100</y>
+          <y>90</y>
           <width>101</width>
           <height>24</height>
          </rect>
@@ -1081,7 +1128,7 @@
       <property name="title">
        <string>Measurement Statistics</string>
       </property>
-      <widget class="QLineEdit" name="TimeSinceStartEdt">
+      <widget class="QLineEdit" name="label_TimeSinceStart">
        <property name="geometry">
         <rect>
          <x>150</x>
@@ -1094,7 +1141,7 @@
         <bool>true</bool>
        </property>
       </widget>
-      <widget class="QLineEdit" name="CycleNr">
+      <widget class="QLineEdit" name="label_CurrentCycleNr">
        <property name="geometry">
         <rect>
          <x>150</x>
@@ -1107,7 +1154,7 @@
         <bool>true</bool>
        </property>
       </widget>
-      <widget class="QLineEdit" name="NrFailuresEdt">
+      <widget class="QLineEdit" name="label_NrFailures">
        <property name="geometry">
         <rect>
          <x>150</x>
@@ -1120,7 +1167,7 @@
         <bool>true</bool>
        </property>
       </widget>
-      <widget class="QLineEdit" name="TimePerScanEdt">
+      <widget class="QLineEdit" name="label_TimePerScan">
        <property name="geometry">
         <rect>
          <x>150</x>
@@ -1133,7 +1180,7 @@
         <bool>true</bool>
        </property>
       </widget>
-      <widget class="QLineEdit" name="LastScanEdt">
+      <widget class="QLineEdit" name="label_LastScan">
        <property name="geometry">
         <rect>
          <x>150</x>
@@ -1302,7 +1349,7 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>190</y>
+         <y>180</y>
          <width>221</width>
          <height>61</height>
         </rect>
@@ -1405,13 +1452,13 @@
        <property name="geometry">
         <rect>
          <x>10</x>
-         <y>270</y>
+         <y>250</y>
          <width>221</width>
-         <height>71</height>
+         <height>101</height>
         </rect>
        </property>
        <property name="title">
-        <string>Dark and Reference Settings</string>
+        <string>Correction Settings</string>
        </property>
        <widget class="QCheckBox" name="DarkCorrChk">
         <property name="geometry">
@@ -1447,6 +1494,19 @@
         </property>
         <property name="text">
          <string>% (100% recommended)</string>
+        </property>
+       </widget>
+       <widget class="QCheckBox" name="SLSCorrCheck">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>70</y>
+          <width>211</width>
+          <height>19</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Stray Light Correction (recommended)</string>
         </property>
        </widget>
       </widget>
@@ -1577,7 +1637,7 @@
        <property name="geometry">
         <rect>
          <x>299</x>
-         <y>190</y>
+         <y>180</y>
          <width>201</width>
          <height>71</height>
         </rect>
@@ -1709,11 +1769,11 @@
   <tabstop>DarkCorrPercEdt</tabstop>
   <tabstop>StartMeasBtn</tabstop>
   <tabstop>StopMeasBtn</tabstop>
-  <tabstop>TimeSinceStartEdt</tabstop>
-  <tabstop>CycleNr</tabstop>
-  <tabstop>NrFailuresEdt</tabstop>
-  <tabstop>TimePerScanEdt</tabstop>
-  <tabstop>LastScanEdt</tabstop>
+  <tabstop>label_TimeSinceStart</tabstop>
+  <tabstop>label_CurrentCycleNr</tabstop>
+  <tabstop>label_NrFailures</tabstop>
+  <tabstop>label_TimePerScan</tabstop>
+  <tabstop>label_LastScan</tabstop>
   <tabstop>DisableGraphChk</tabstop>
   <tabstop>SaturatedChk</tabstop>
   <tabstop>tabWidget</tabstop>
