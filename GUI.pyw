@@ -1,58 +1,14 @@
 """
-AvaSpec example script PyQt5_fulldemo.pyw modified by Jorn
-Start: 2024-07-24
+Used the script PyQt5_fulldemo.pyw provided with the AvaSpec library as a starting example.
 
-Goal: kinetic measurements with shutter control (closed between acquisitions)
-- record Absorbance spectra (and auto-save them)
-- also with LED Arduino control
-
-IMPORTANT NOTES:
-- I copied and renamed plot_mpl.py to plot.py, in order for the script to work with matplotlib
-    (the original had plot_qwt.py as plot.py, for which a module named 'PyQt5.Qwt' is neeed)
-- this file (PyQt5_fulldemo.pyw) contains the definitions and functions that are linked to the GUI objects
-- the file "MainWindow.py" contains the code that builds the GUI: it was created from MainWindow.ui
-    -- the function "connectSlotsByName" connects signals to slots according to a simple naming convention
-        --- https://riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#connecting-slots-by-name
-        --- "Signal" to on_"Slot"_valueChanged (works apparently for _clicked as well)
-        --- @pyqtSlot() is necessary to specify which of the possible overloaded Qt signals should be connected to the slot
-
-
-TO DO/ADD:
-[DONE] Shutter control: OPEN-MEASURE-CLOSE 
-[DONE] Shutter control over multiple measurements (user-input)
-[DONE] Add parameters: Interval (s); Number of Cycles; ...
-
-[DONE] Add "Dynamic Dark Correction"
-    => already done: measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
-    [DONE] Change name of feature in GUI to Dynamic Dark Correction
-
-[DONE] Add "Stray Light Suppression/Correction": 
-    - [DONE] Ask Avantes: need the .py source code of the Qt_Demo_SLS compiled programme => does not exist...
-    - [DONE] Check the C++ code for inspiration and apply AVS_SuppressStrayLight in .py
-
-[DONE] "Record Reference" button that stores reference data (as np array) to be used here
-[DONE] "Record Dark" button that stores dark data and creates a dark-corrected Intensity spectrum by subtraction
-[DONE] Absorbance Mode
-[DONE] Save spectra: Intensity and Absorbance separately
-[] Add option to choose Reference data (from file) for current measurement
-###
-[DONE] Measurement mode: Irradiation Kinetics
-    - [DONE] Need to add Arduino control for LED driver
-[DONE] Add MOD mode feature => LED Control
-[] Measurement mode: Irr followed by non-Irr Kinetics (to measure irr and then thermal back-relaxation)
-###
-[] Trigger mode: External (Arduino-controlled)
-###
-([] Thorlabs powermeter (tlPM) code)
-#######
-Improve the spectral viewer:
-[] add feature to remember certain previous spectra
-[] add feature to plot value (Abs) at a user-defined wavelength vs spectrum/time
-[] switch between Intensity and Absorbance modes (tabs)
-#######
-Improve code:
-[DONE] Remove * imports (convert to regular "full" imports)
-
+Notes:
+- "MainWindow.py" contains the code that builds the GUI: it was created from MainWindow.ui using the tool pyuic5 from the package pyqt5-tools
+- In the .ui file, the function "connectSlotsByName" connects signals to slots according to a simple naming convention
+    -- https://riverbankcomputing.com/static/Docs/PyQt5/signals_slots.html#connecting-slots-by-name
+    -- For example, the function (Signal) "on_ActivateBtn_clicked(self)" is connected to the Slot "ActivateBtn"
+    -- @pyqtSlot() is necessary to specify which of the possible overloaded Qt signals should be connected to the slot
+    -- For buttons, do not use explicit connect together with the on_ notation, or you will get two signals instead of one!
+    -- If you leave out the @pyqtSlot() line, you will also get an extra signal! So you might even get three!
 """
 import os
 import sys
@@ -80,21 +36,8 @@ import eeprom_demo
 import user.settings as Settings
 import tools.LED_control as LEDControl
 
-##############################
-######## add to globals.py
-SHUTTER_OPEN = 1 ## value to open shutter
-SHUTTER_CLOSE = 0 ## value to close shutter
-##!!! TEST AND FIND OPTIMAL DELAY TIME FOR SHUTTER
+###############################################################################
 
-    ## add to on_ActivateBtn_clicked
-portID_pin12_DO4 = 3 ## portID of pin that controls the shutter
-    ## re-name to PortID_InternalLightSource = 3
-
-## see digital_io_demo.py for SetDigOut information
-########
-
-##############################
-#############################
 class Worker(QObject):
     finished = pyqtSignal()
     func = None
@@ -191,17 +134,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.ContinuousRBtn.setEnabled(False) ##!!! TURN ON WHEN FUNCTION IS READY
         ###########################################
         self.SpectrometerList.clicked.connect(self.on_SpectrometerList_clicked)
-#       self.OpenCommBtn.clicked.connect(self.on_OpenCommBtn_clicked)
-    #       for buttons, do not use explicit connect together with the on_ notation, or you will get
-    #       two signals instead of one!
-        
         self.timer.timeout.connect(self.update_plot) ## This signal is emitted when the timer times out.
         self.timer.stop() ## Stops the timer.
-        
         ###########################################
-        self.newdata.connect(self.handle_newdata) ## 
-            ## this connects signal: pyqtSignal(int, int)
-                ## to slot: self.handle_newdata
+        self.newdata.connect(self.handle_newdata) ## this connects signal: pyqtSignal(int, int), to slot: self.handle_newdata
         ###########################################
         self.cancel.connect(self.cancel_meas)
         self.DisableGraphChk.stateChanged.connect(self.on_DisableGraphChk_stateChanged)
@@ -213,8 +149,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     ###########################################
     ###########################################
     @pyqtSlot()
-#   if you leave out the @pyqtSlot() line, you will also get an extra signal!
-    #   so you might even get three!
     def on_OpenCommBtn_clicked(self):
         self.statusBar.showMessage('Open communication busy')
         la_Port = 0
@@ -352,7 +286,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 ###########################################
                 self.IntTimeEdt.textChanged.connect(self.handle_textfield_change)
                 self.AvgEdt.textChanged.connect(self.handle_textfield_change)
-                # self.handle_textfield_change()
                 self.on_SettingsBtn_clicked()
                 ###########################################
                 dtype = 0
@@ -369,7 +302,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                     self.DeviceTypeEdt.setText("AS7007")                    
                 # self.DstrRBtn.setEnabled(dtype == 3)  # only available on AS7010
                 ######
-                ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
+                ava.AVS_SetDigOut(globals.dev_handle, ava.PortID_Internal_LightSource, ava.SHUTTER_CLOSE) ## close shutter
         return
 
     @pyqtSlot()
@@ -405,8 +338,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.MeasurementType = "Dark"
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
         ###########################################
-        # globals.l_NrOfScans = int(1) # 1 scan
-        ###########################################
         if (self.DarkMeasBtn.isEnabled()):
             print ("on_DarkMeasBtn_clicked === DarkMeasBtn enabled")
             globals.m_DateTime_start = QDateTime.currentDateTime()
@@ -418,8 +349,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_CurrentCycleNr.setText("{0:d}".format(0))
             self.label_NrFailures.setText("{0:d}".format(0))
         self.DarkMeasBtn.setEnabled(False) 
-
-        # print(f"globals.m_Measurements: {globals.m_Measurements}")
 
         ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
         globals.dataready = False
@@ -456,10 +385,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_CurrentCycleNr.setText("{0:d}".format(0))
             self.label_NrFailures.setText("{0:d}".format(0))
         self.RefMeasBtn.setEnabled(False)
-        # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
-        
         self.One_Measurement()
-        
         self.RefMeasBtn.setEnabled(True)
         self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
         return
@@ -478,9 +404,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_TimeSinceStart.setText("{0:d}".format(0))
             self.label_CurrentCycleNr.setText("{0:d}".format(0))
             self.label_NrFailures.setText("{0:d}".format(0))
-
-        # self.timer.start(200) ### Starts or restarts the timer with a timeout interval of msec milliseconds.
-        
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
 
         ###!!! in case of Absorbance Mode: add an if-check for the Ref having been measured
@@ -505,7 +428,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         if (self.SingleRBtn.isChecked()): ## added
             globals.AcquisitionMode = "Single" 
-            # globals.l_NrOfScans = int(1)
             self.worker_meas.func = self.Single_Measurement #here the job of the worker is defined
 
         if (self.ContinuousRBtn.isChecked()):
@@ -579,9 +501,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             time.sleep(0.001)
         if globals.dataready == True:
             self.newdata.emit(globals.dev_handle, ret)
-            # print(f"sleeping after newdata emit for {self.delay_acq} s")
             time.sleep(self.delay_acq)
-        
         if globals.AcquisitionMode != "Continuous":
             self.Shutter_Close()
         print("One Measurement done")
@@ -720,7 +640,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         time.sleep(1)
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
-        # self.timer.stop()
         return
 
     @pyqtSlot()
@@ -731,7 +650,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     @pyqtSlot()
     def on_AutoSaveFolderBtn_clicked(self):
-        ## File dialog for selecting files
         folder = QFileDialog.getExistingDirectory(self,
                                                   "Choose folder for auto-saving", 
                                                   "",
@@ -755,17 +673,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
 ##!!! TEST AND FIND OPTIMAL DELAY TIME (see DefaultSettings)
     def Shutter_Open(self):
-        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-        self.record_event("Open Shutter") ## add timestamp to log file
+        ava.AVS_SetDigOut(globals.dev_handle, ava.PortID_Internal_LightSource, ava.SHUTTER_OPEN) ## open shutter
+        self.record_event("Open_Shutter") ## add timestamp to log file
         time.sleep(self.delay_afterShutter_Open) ## short delay between Open Shutter and Measure
-        # print(">> Shutter_Open <<")
 
     def Shutter_Close(self):
         time.sleep(self.delay_beforeShutter_Close) ## short delay between Measure and Close Shutter
-        ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-        self.record_event("Close Shutter") ## add timestamp to log file
+        ava.AVS_SetDigOut(globals.dev_handle, ava.PortID_Internal_LightSource, ava.SHUTTER_CLOSE) ## close shutter
+        self.record_event("Close_Shutter") ## add timestamp to log file
         time.sleep(self.delay_afterShutter_Close) ## short delay after Close Shutter
-        # print(">> Shutter Closed <<")
 
     ###########################################################################
     ###########################################################################
@@ -935,7 +851,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         globals.m_Measurements += 1
                         self.record_event("Measurement")
                         
-                        timestamp = 0
+                        timestamp = 0 ##!!! ADJUST to use for how long acquisition took
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
                         ##################
                         savefolder = globals.AutoSaveFolder
@@ -1051,11 +967,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         l_Seconds = l_MilliSeconds/1000
                         print(f"handle_newdata timestamp: {l_Seconds} (s)")
                         
-                        ##!!! ADD l_MilliSeconds TO TIMESTAMPS ARRAY
-                        
                         self.label_TimeSinceStart.setText(f"{l_Seconds:.3f}")
                         self.label_CurrentCycleNr.setText(f"{globals.m_Cycle}")
-                        # globals.m_Cycle += 1
                         ###########################################
                         self.update_plot() ## update plot
                     except (ValueError, RuntimeError, TypeError, NameError) as e:
@@ -1178,16 +1091,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.startpixel = globals.DeviceData.m_StandAlone_m_Meas_m_StartPixel
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
         globals.wavelength_doublearray = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
-        # print(f"ConnectGui ==== globals.wavelength_doublearray: {globals.wavelength_doublearray}")
         globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
-        # print(f"ConnectGui ==== globals.wavelength: {globals.wavelength}")
         return
 
     def DefaultSettings(self):
         '''
         ava.MeasConfigType() contains specific configuration and gets used with ret = AVS_PrepareMeasure
         '''
-        # self.measconfig = ava.MeasConfigType()
         self.measconfig.m_StartPixel = globals.startpixel
         self.measconfig.m_StopPixel = globals.stoppixel
         

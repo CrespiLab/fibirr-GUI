@@ -29,6 +29,16 @@ DSTR_STATUS_DSS_MASK = 0x01   # DSTR Sequence Stop (DSS) bit of MEASUREMENT_DSTR
 DSTR_STATUS_FOE_MASK = 0x02   # FIFO Overflow Error (FOE) bit of MEASUREMENT_DSTR_STATUS->DMS
 DSTR_STATUS_IERR_MASK = 0x04  # Internal Error (IERR) bit of MEASUREMENT_DSTR_STATUS->DMS
 
+SHUTTER_OPEN = 1 ## value to open shutter
+SHUTTER_CLOSE = 0 ## value to close shutter
+
+PortID_Internal_LightSource = 3 ## pin12, DO4
+    ## portID of pin that controls the shutter inside the AvaLight-DH-S-BAL
+    ## connected to the detector using an IC-DB-26-RM interface cable
+    ## see digital_io_demo.py for SetDigOut information
+
+###############################################################################
+
 if 'linux' in sys.platform: # Linux will have 'linux' or 'linux2'
     lib = ctypes.CDLL("/usr/local/lib/libavs.so.0")
     func = ctypes.CFUNCTYPE
