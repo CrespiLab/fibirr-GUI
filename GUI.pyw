@@ -306,15 +306,20 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             if (ava.INVALID_AVS_HANDLE_VALUE == globals.dev_handle):
                 QMessageBox.critical(self, "Qt Demo", "Error opening device {}".format(l_Text))
             else:
+                self.measconfig = ava.MeasConfigType() ## use avaspec class for measurement configuration
                 m_Identity = l_Id
                 globals.mSelectedDevRow = self.SpectrometerList.currentItem().row()
                 self.on_UpdateListBtn_clicked()
                 self.ConnectGui()
-                # print(f"globals.wavelength: {globals.wavelength}")
-                self.on_ReadEepromBtn_clicked() ## the ReadEepromBtn gets clicked: see def below
-                    ## sets integration time and nr. averages to EEPROM default
+                self.on_ReadEepromBtn_clicked() ## sets integration time and nr. averages to EEPROM default
                 self.StartLEDControl() ## initialise Arduino, etc.
                 self.DefaultSettings() # set default settings
+                ###########################################
+                self.IntTimeEdt.textChanged.connect(self.handle_textfield_change)
+                self.AvgEdt.textChanged.connect(self.handle_textfield_change)
+                # self.handle_textfield_change()
+                self.on_SettingsBtn_clicked()
+                ###########################################
                 dtype = 0
                 dtype = ava.AVS_GetDeviceType(globals.dev_handle)  
                 if (dtype == 0):
@@ -345,7 +350,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.measconfig.m_CorDynDark_m_Enable = self.DarkCorrChk.isChecked() ## turns on Dynamic Dark Correction
         self.measconfig.m_CorDynDark_m_ForgetPercentage = int(self.DarkCorrPercEdt.text()) ## sets percentage (100% is recommended)
         ####
-        self.measconfig.m_SaturationDetection = int(self.SatDetEdt.text())
+        if self.SatDetEdt.text() == "on":
+            self.measconfig.m_SaturationDetection = 1
+        elif self.SatDetEdt.text() == "off":
+            self.measconfig.m_SaturationDetection = 0
         ###########################################
         if (self.InternalTriggerBtn.isChecked()):
             self.measconfig.m_Trigger_m_Mode = 0
@@ -353,6 +361,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if (self.ExternalTriggerBtn.isChecked()):
             self.measconfig.m_Trigger_m_Mode = 1
             ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
+        self.StatusLabel_Settings.setText("Settings saved")
     ###########################################
 
     @pyqtSlot()
@@ -991,6 +1000,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             j += 1
                             self.SaturatedChk.setChecked(SpectrumIsSatured)
                         
+                        #######################################################
+                        ##!!! SHOULD BE TIME PER ACQUISITION: TRY AND CHANGE IT
                         l_Dif = timestamp - globals.m_PreviousTimeStamp  # timestamps in 10 us ticks
                         globals.m_PreviousTimeStamp = timestamp ##!!! use this as timestamp
                         
@@ -1002,10 +1013,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         else:
                             self.label_LastScan.setText("")
                             self.label_TimePerScan.setText("")
+                        #######################################################
 
                         l_MilliSeconds = globals.m_DateTime_start.msecsTo(QDateTime.currentDateTime()) ## difference in milliseconds between current and start time
                         l_Seconds = l_MilliSeconds/1000
                         print(f"handle_newdata timestamp: {l_Seconds} (s)")
+                        
+                        ##!!! ADD l_MilliSeconds TO TIMESTAMPS ARRAY
+                        # globals.Timestamps
                         
                         self.label_TimeSinceStart.setText(f"{l_Seconds:.3f}")
                         self.label_CurrentCycleNr.setText(f"{globals.m_Cycle}")
@@ -1035,9 +1050,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         #### show measurement settings
         self.StartPixelEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_StartPixel))
         self.StopPixelEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_StopPixel))
-        self.IntTimeEdt.setText("{0:.3f}".format(l_DeviceData.m_StandAlone_m_Meas_m_IntegrationTime)) ## sets integration time to EEPROM default
+        self.IntTimeEdt.setText("{0:.1f}".format(l_DeviceData.m_StandAlone_m_Meas_m_IntegrationTime)) ## sets integration time to EEPROM default
         l_FPGAClkCycles = l_DeviceData.m_StandAlone_m_Meas_m_IntegrationDelay
         l_NanoSec = 125.0*(l_FPGAClkCycles-1.0)/6.0
+        
+        l_DeviceData.m_StandAlone_m_Meas_m_NrAverages = 10
         self.IntDelayEdt.setText("{0:.0f}".format(l_NanoSec))
         self.AvgEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_NrAverages))
         self.SatDetEdt.setText("{0:d}".format(l_DeviceData.m_StandAlone_m_Meas_m_SaturationDetection))
@@ -1139,7 +1156,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         '''
         ava.MeasConfigType() contains specific configuration and gets used with ret = AVS_PrepareMeasure
         '''
-        self.measconfig = ava.MeasConfigType() 
+        # self.measconfig = ava.MeasConfigType()
         self.measconfig.m_StartPixel = globals.startpixel
         self.measconfig.m_StopPixel = globals.stoppixel
         
@@ -1301,7 +1318,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_NrCyclesEdt.setEnabled(True)
             self.IntervalEdt.setEnabled(True)
             self.label_IntervalEdt.setEnabled(True)
-            
+        
+    def handle_textfield_change(self):
+        ##!!! SHOULD BE A FLOAT (to allow, e.g., 3.5 ms)
+        if float(self.IntTimeEdt.text()) != self.measconfig.m_IntegrationTime:
+            self.StatusLabel_Settings.setText("Settings NOT saved!")
+        if int(self.AvgEdt.text()) != self.measconfig.m_NrAverages:
+            self.StatusLabel_Settings.setText("Settings NOT saved!")
+    
     ###########################################################################
     ###########################################################################
     ###########################################################################
