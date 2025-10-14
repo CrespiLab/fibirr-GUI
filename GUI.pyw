@@ -54,11 +54,13 @@ Improve code:
 [DONE] Remove * imports (convert to regular "full" imports)
 
 """
-# import inspect
+import os
 import sys
 import ctypes
 import time
+from datetime import datetime
 import serial ## for communication with Arduino COM port
+import csv
 
 import numpy as np
 import pandas as pd
@@ -67,7 +69,7 @@ from math import log10
 from PyQt5.QtCore import (QTimer, pyqtSignal, pyqtSlot, QDateTime, Qt, 
                           QObject, QThread)
 from PyQt5.QtWidgets import (QMainWindow, QAbstractItemView, QTableWidgetItem, 
-                             QMessageBox, QListWidget, qApp, QFileDialog, QApplication)
+                             QMessageBox, QListWidget, QFileDialog, QApplication)
 
 import avaspec as ava
 import globals
@@ -100,6 +102,39 @@ class Worker(QObject):
         self.func()
         self.finished.emit()
         return
+
+class Logger:
+    def __init__(self, filename):
+        self.filename = self._get_unique_filename(filename)
+        try:
+            with open(self.filename, "x", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow(["Cycle", "Time (YYYY-MM-DD_HH:MI:SS)", "Timestamp (s)", "Event"])
+        except:
+            print("opening file was unsuccessful (unknown error)")
+
+    def _get_unique_filename(self, base_filename):
+        """
+        If 'log.csv' exists, make 'log_2.csv', 'log_3.csv', etc.
+        """
+        if not os.path.exists(base_filename):
+            return base_filename
+
+        name, ext = os.path.splitext(base_filename)
+        i = 2
+        while os.path.exists(f"{name}_{i}{ext}"):
+            i += 1
+        return f"{name}_{i}{ext}"
+
+    def log(self, event):
+        time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S.%f")
+        timestamp = (globals.m_DateTime_start.msecsTo(QDateTime.currentDateTime()))/1000
+        
+        print(f"   timestamp: {timestamp}")
+        
+        with open(self.filename, mode="a", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow([globals.m_Cycle, time, timestamp, event])
 
 class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     timer = QTimer() 
@@ -174,7 +209,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         self.delay_acq = 0 ## time that acquisition takes
         ###########################################
-     
+
     ###########################################
     ###########################################
     @pyqtSlot()
@@ -377,7 +412,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_DateTime_start = QDateTime.currentDateTime()
             globals.m_SummatedTimeStamps = 0.0
             globals.m_Measurements = 0
-            globals.m_Cycle = 1
+            globals.m_Cycle = 0
             globals.m_Failures = 0
             self.label_TimeSinceStart.setText("{0:d}".format(0))
             self.label_CurrentCycleNr.setText("{0:d}".format(0))
@@ -415,7 +450,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_DateTime_start = QDateTime.currentDateTime()
             globals.m_SummatedTimeStamps = 0.0
             globals.m_Measurements = 0
-            globals.m_Cycle = 1
+            globals.m_Cycle = 0
             globals.m_Failures = 0
             self.label_TimeSinceStart.setText("{0:d}".format(0))
             self.label_CurrentCycleNr.setText("{0:d}".format(0))
@@ -438,7 +473,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.m_DateTime_start = QDateTime.currentDateTime()
             globals.m_SummatedTimeStamps = 0.0
             globals.m_Measurements = 0
-            globals.m_Cycle = 1
+            globals.m_Cycle = 0
             globals.m_Failures = 0
             self.label_TimeSinceStart.setText("{0:d}".format(0))
             self.label_CurrentCycleNr.setText("{0:d}".format(0))
@@ -483,6 +518,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
         if (self.KineticsRBtn.isChecked()):
             globals.AcquisitionMode = "Kin"
+            self.logger = Logger(f"{globals.AutoSaveFolder}/log.csv") ## initialise logger for timestamps
             
             ##!!! ADD WARNING:
                 ## if l_interval < 2
@@ -503,6 +539,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 globals.AcquisitionMode = "IrrKin" 
                 globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
                 globals.l_interval = int(self.IntervalEdt.text())
+                self.logger = Logger(f"{globals.AutoSaveFolder}/log.csv") ## initialise logger for timestamps
                 
                 #!!! MAKE SLIDER AND PERCENTAGE FIELD INACTIVE DURING MEASUREMENT
                 
@@ -548,6 +585,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if globals.AcquisitionMode != "Continuous":
             self.Shutter_Close()
         print("One Measurement done")
+        globals.m_Cycle += 1
         print(f"globals.m_Measurements: {globals.m_Measurements}")
         return
 
@@ -693,10 +731,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     @pyqtSlot()
     def on_AutoSaveFolderBtn_clicked(self):
-        print("=== SaveFolderBtn clicked ===")
-        
-        # options = QtWidgets.QFileDialog.Options()
-
         ## File dialog for selecting files
         folder = QFileDialog.getExistingDirectory(self,
                                                   "Choose folder for auto-saving", 
@@ -722,23 +756,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 ##!!! TEST AND FIND OPTIMAL DELAY TIME (see DefaultSettings)
     def Shutter_Open(self):
         ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_OPEN) ## open shutter
-        
-        ##!!! ADD TIMESTAMP
-        #globals.timestamps_ShutterOpen = 
-                
+        self.record_event("Open Shutter") ## add timestamp to log file
         time.sleep(self.delay_afterShutter_Open) ## short delay between Open Shutter and Measure
-        
         # print(">> Shutter_Open <<")
 
     def Shutter_Close(self):
         time.sleep(self.delay_beforeShutter_Close) ## short delay between Measure and Close Shutter
         ava.AVS_SetDigOut(globals.dev_handle, portID_pin12_DO4, SHUTTER_CLOSE) ## close shutter
-        
-        ##!!! ADD TIMESTAMP
-        #globals.timestamps_ShutterClose = 
-        
+        self.record_event("Close Shutter") ## add timestamp to log file
         time.sleep(self.delay_afterShutter_Close) ## short delay after Close Shutter
-        
         # print(">> Shutter Closed <<")
 
     ###########################################################################
@@ -820,14 +846,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             time.sleep(self.delay_beforeLED_ON)
         LEDControl.turnLED_ON()
         
-        ##!!! ADD
-        ##globals.timestamp_LED_ON = 
+        ##!!! ADD TIMESTAMP
+        
         self.update_label_LEDstatus()
 
     def turnLED_OFF(self):
         LEDControl.turnLED_OFF()
-        ##!!! ADD
-        ##globals.timestamp_LED_OFF = 
+        ##!!! ADD TIMESTAMP
+        
         self.update_label_LEDstatus()
         if not (self.StartMeasBtn.isEnabled()): ## if on-going measurement
             time.sleep(self.delay_afterLED_OFF)
@@ -849,7 +875,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 self.plot.update_absorbanceplot()
             else:
                 QMessageBox.warning(self, "Error", "Something wrong with Measurement Mode")                
-        return         
+        return
+
+    def record_event(self, event_name):
+        if globals.AcquisitionMode in ("Kin", "IrrKin"):
+            print(f"Event: {event_name}")
+            self.logger.log(event_name)
 
     @pyqtSlot()
     def auto_save(self, foldername, mode, spectrum):
@@ -901,11 +932,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 if (lerror == 0): # normal measurements
                     self.statusBar.showMessage("Meas.Status: success")
                     try:
-                        # print(f"globals.dataready: {globals.dataready}")
                         globals.m_Measurements += 1
+                        self.record_event("Measurement")
+                        
                         timestamp = 0
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
-                        # ##################
+                        ##################
                         savefolder = globals.AutoSaveFolder
                         ##################
                         if globals.MeasurementType == "Dark":
@@ -1020,11 +1052,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         print(f"handle_newdata timestamp: {l_Seconds} (s)")
                         
                         ##!!! ADD l_MilliSeconds TO TIMESTAMPS ARRAY
-                        # globals.Timestamps
                         
                         self.label_TimeSinceStart.setText(f"{l_Seconds:.3f}")
                         self.label_CurrentCycleNr.setText(f"{globals.m_Cycle}")
-                        globals.m_Cycle += 1
+                        # globals.m_Cycle += 1
                         ###########################################
                         self.update_plot() ## update plot
                     except (ValueError, RuntimeError, TypeError, NameError) as e:
@@ -1209,7 +1240,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.NrCyclesEdt.setText("10") ## default nr. measurements
         self.IntervalEdt.setText("10") # default interval in seconds
         
-        globals.AutoSaveFolder = Settings.Default_AutoSaveFolder 
+        globals.AutoSaveFolder = Settings.Default_AutoSaveFolder
         ##!!! SET DEFAULT
         
     def DisconnectGui(self):
