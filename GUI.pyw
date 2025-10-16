@@ -35,6 +35,7 @@ import digital_io_demo
 import eeprom_demo
 import user.settings as Settings
 import tools.LED_control as LEDControl
+import tools.data_handling as DataHandling
 
 ###############################################################################
 
@@ -586,34 +587,29 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     @pyqtSlot()
     def IrradiationKinetics_Measurement(self):
         ''' 
-        The interval defined by the user is used for the delay,
-            i.e. it is the actual irradiation time.
-        There are some delays around spectral acquisition.
+        The delay used for the loop is the user-defined interval subtracted by 
+        the total sum of the delays due to the shutter and LED functionalities,
+        such that the measurement of spectra is separated by approximately the user-defined interval.
         '''
         print("=== IrradiationKinetics_Measurement ===")
         self.StartMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(True)
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
-        
-        print(f"globals.delays_total: {globals.delays_total}")
-        
-        delay = globals.l_interval ## delay is irradiation time (user-defined)
-        ##!!! MAYBE CHANGE BACK TO DELAY WITH DELAYS_TOTAL SUBTRACTED
-        
+        delay_float = globals.l_interval - globals.delays_Shutter_plus_LED
+        delay = int(delay_float) ## user-defined interval subtracted by total sum of delays
         self.cancelled = False
+
+        print(f"delay_float: {delay_float}")
         print(f"===nummeas: {nummeas}\n===LED {self.selected_LED}, {self.current} mA ({self.percentage} %)")
 
-        ##!!! IMPORTANT:
-            ## log actual irradiation time
-
         for i in range(nummeas):
-            print(f"i: {i}")
             if self.cancelled == True: ## break loop if Stop button was pressed
                 print("Cancelled IrradiationKinetics Measurement")
-                self.Shutter_Close()
                 self.turnLED_OFF()
-                return
+                self.Shutter_Close()
+                break
             else:
+                print(f"i: {i}")
                 self.One_Measurement() ## do one measurement
                 if globals.m_Measurements != nummeas:
                     self.turnLED_ON() ## wait for a bit, and turn on LED
@@ -622,12 +618,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         time.sleep(1)
                         if self.cancelled == True:
                             break
-                    print(f"Delay {delay} s done")
-                    self.turnLED_OFF() ## turn off LED, and wait for a bit
-        print(f"Irradiation Kinetics measurement done ({nummeas} measurements)")
+                    if self.cancelled == False:
+                        print(f"Delay {delay} s done")
+                        self.turnLED_OFF() ## turn off LED, and wait for a bit
         
-        ##!!! ADD: SAVE LOG
-            ## generate log file meant for autoQY: timestamps of actual irradiation times
+        if self.cancelled == False:
+            print(f"Irradiation Kinetics measurement done ({nummeas} measurements)")
+        
+        self.log_autoQY = Logger(f"{globals.AutoSaveFolder}/log_for_autoQY.csv")
+        DataHandling.ConvertTimestamps(self.logger.filename, self.log_autoQY.filename) ## generate log file meant for autoQY: timestamps of actual irradiation times
         
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
@@ -757,23 +756,18 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.turnLED_OFF()
 
     def turnLED_ON(self):
-        ##!!! ADDED DELAY
         if not (self.StartMeasBtn.isEnabled()): ## if on-going measurement
-            time.sleep(self.delay_beforeLED_ON)
+            time.sleep(self.delay_beforeLED_ON) ## delay after measurement (Shutter_Close)
         LEDControl.turnLED_ON()
-        
-        ##!!! ADD TIMESTAMP
-        
+        self.record_event("LED_ON") ## add timestamp to log file
         self.update_label_LEDstatus()
 
     def turnLED_OFF(self):
         LEDControl.turnLED_OFF()
-        ##!!! ADD TIMESTAMP
-        
+        self.record_event("LED_OFF") ## add timestamp to log file
         self.update_label_LEDstatus()
         if not (self.StartMeasBtn.isEnabled()): ## if on-going measurement
-            time.sleep(self.delay_afterLED_OFF)
-        ##!!! ADDED DELAY
+            time.sleep(self.delay_afterLED_OFF) ## delay before measurement (Shutter_Open)
 
     ###########################################################################
     ###########################################################################
@@ -1122,7 +1116,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         print(f"self.delay_afterShutter_Close: {self.delay_afterShutter_Close} s")
         
         globals.delays_aroundShutter = self.delay_afterShutter_Open + self.delay_afterShutter_Close
-        globals.delays_total = globals.delays_aroundLED + globals.delays_aroundShutter
+        globals.delays_Shutter_plus_LED = globals.delays_aroundShutter + globals.delays_aroundLED
         
         ##!!! move setting of measconfig parameters to Activate function (probably)
         self.measconfig.m_CorDynDark_m_Enable = 1

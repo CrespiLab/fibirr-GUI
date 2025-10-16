@@ -29,17 +29,14 @@ import user.settings as Settings
 
 def write_read(arduino, x):
     if Settings.MODE_LED == "TEST":
-        # print(f'==== TEST MODE ====\ntwelvebit_adjusted: {x}')
         print('==== TEST MODE ====')
     else:
         arduino.write(bytes(x, 'utf-8'))
         time.sleep(0.05)
         data = arduino.readline()
-     	# print(f"data:{data}")
         return data
 
 def turnLED_ON():
-    # print(f"twelvebit_adjusted: {Settings.twelvebit_adjusted}")
     write_read(Settings.arduino, Settings.twelvebit_adjusted) ## send ON signal to Arduino (percentage-adjusted)
     Settings.LEDstatus = "ON"
     print(f"Turned {Settings.LEDstatus} the LED")
