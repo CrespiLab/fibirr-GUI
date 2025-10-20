@@ -15,8 +15,8 @@
 - [ ] Add module for power measurement of LEDs
 
 ## In Progress :)
-- [ ] Add plot: live trace of Abs at chosen wavelength
-- [ ] Add plot: latest recorded spectra during (irradiation) kinetics measurement (load from disk)
+- [ ] Add back-up save feature for recorded spectra
+- [ ] Make sure not to overwrite Single spectra
 
 - [ ] Add (auto-)save options
   - [x] Option: folder for auto-saving of spectra
@@ -26,3 +26,6 @@
 ## Completed ✓
 - [x] Add and fix Measurement Statistics: time passed; nr of measurements done; etc.
 - [x] Log timestamps during Kin and IrrKin measurements
+
+- [x] Add plot: live trace of Abs at chosen wavelength
+- [x] Add plot: latest recorded spectra during (irradiation) kinetics measurement (load from disk)
