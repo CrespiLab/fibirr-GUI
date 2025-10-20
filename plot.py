@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import numpy as np
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5 import QtWidgets
@@ -73,10 +73,24 @@ class Plot(QtWidgets.QWidget):
         print("plot recent spectra")
         return
     
-    def plot_trace(self):
+    def trace(self, measurement_number, df, index_1, wavelength_1):
         self.canvas.ax.clear()
         self.canvas.ax.set_xlabel("Measurement")
-        self.canvas.ax.set_ylabel("Absorbance")
+
+        if globals.MeasurementMode == "Abs":
+            self.canvas.ax.set_ylabel("Absorbance")
+        elif globals.MeasurementMode == "Int":
+            self.canvas.ax.set_ylabel("Counts (Dark- and SLS-Corrected)")
+
+        range_of_measurements = np.arange(1,measurement_number+1)
+        values_at_index_1 = df.iloc[index_1, 1:].to_numpy() ## Abs or Int values of each spectrum
         
-        
+        self.canvas.ax.scatter(range_of_measurements, values_at_index_1, 
+                               color='darkorange', label=f'{wavelength_1:.1f} nm')
+        self.canvas.ax.legend()
+        self.canvas.draw()
+        self.show()
+        print("plot trace")
+
+
         

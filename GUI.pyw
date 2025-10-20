@@ -101,6 +101,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.Mode_Scope.toggled.connect(self.handle_radio_selection)
         self.Mode_Absorbance.toggled.connect(self.handle_radio_selection)
         
+        self.PlotTraceChk.toggled.connect(self.handle_radio_selection)
+        self.TraceWavelengthChk_1.toggled.connect(self.handle_radio_selection)
+        self.TraceWavelengthChk_2.toggled.connect(self.handle_radio_selection)
+        
         self.handle_radio_selection()
         
         self.ContinuousRBtn.setEnabled(False) ##!!! TURN ON WHEN FUNCTION IS READY
@@ -765,6 +769,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             else:
                 QMessageBox.warning(self, "Error", "Something wrong with Measurement Mode")                
         
+        #######################################################################
+        
         if (self.PlotMeasuredSpectraChk.isChecked() == True):
             if (self.Mode_Scope.isChecked()):
                 if globals.AcquisitionMode in ("Kin", "IrrKin"):
@@ -778,6 +784,29 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 # QMessageBox.warning(self, "Error", "Something wrong with Measurement Mode")
                 print("Something wrong with Measurement Mode")
         
+        #######################################################################
+        
+        if (self.PlotTraceChk.isChecked()):
+            if self.TraceWavelengthChk_1.isChecked() or self.TraceWavelengthChk_2.isChecked():
+                if self.TraceWavelengthChk_1.isChecked():
+                    globals.TraceWavelength_1 = int(self.TraceWavelength_1.text())
+                if self.TraceWavelengthChk_2.isChecked():
+                    globals.TraceWavelength_2 = int(self.TraceWavelength_2.text())
+                    ##!!! ADD OPTION FOR 2 OR 3 TRACE WAVELENGTHS
+            
+                if (self.Mode_Scope.isChecked()):
+                    if globals.AcquisitionMode in ("Kin", "IrrKin"):
+                        dataframe = self.recent_spectra_Int.load_df_spectra()
+                        index_1, wavelength_1 = self.recent_spectra_Int.trace_wavelength(globals.TraceWavelength_1)
+                        self.plot_trace.trace(globals.m_Measurements, dataframe, index_1, wavelength_1)
+                elif (self.Mode_Absorbance.isChecked()):
+                    if globals.AcquisitionMode in ("Kin", "IrrKin"):
+                        dataframe = self.recent_spectra_Abs.load_df_spectra()
+                        index_1, wavelength_1 = self.recent_spectra_Abs.trace_wavelength(globals.TraceWavelength_1)
+                        self.plot_trace.trace(globals.m_Measurements, dataframe, index_1, wavelength_1)
+            else:
+                print("No trace wavelengths chosen")
+            
         return
 
     def record_event(self, event_name):
@@ -1260,6 +1289,28 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.MeasurementMode = "Int"
         if self.Mode_Absorbance.isChecked():
             globals.MeasurementMode = "Abs"
+            
+        if (self.PlotTraceChk.isChecked() == False):
+            self.TraceWavelengthChk_1.setEnabled(False)
+            self.TraceWavelengthChk_2.setEnabled(False)
+        if (self.PlotTraceChk.isChecked() == True):
+            self.TraceWavelengthChk_1.setEnabled(True)
+            self.TraceWavelengthChk_2.setEnabled(True)
+        
+        if (self.TraceWavelengthChk_1.isChecked() == False):
+            self.label_Trace_1.setEnabled(False)
+            self.TraceWavelength_1.setEnabled(False)
+        if self.TraceWavelengthChk_1.isChecked():
+            self.label_Trace_1.setEnabled(True)
+            self.TraceWavelength_1.setEnabled(True)
+        if (self.TraceWavelengthChk_2.isChecked() == False):
+            self.label_Trace_2.setEnabled(False)
+            self.TraceWavelength_2.setEnabled(False)
+        if self.TraceWavelengthChk_2.isChecked():
+            self.label_Trace_2.setEnabled(True)
+            self.TraceWavelength_2.setEnabled(True)
+            
+        
         
     def handle_textfield_change(self):
         ##!!! SHOULD BE A FLOAT (to allow, e.g., 3.5 ms)
