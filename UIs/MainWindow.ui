@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1216</width>
-    <height>883</height>
+    <width>1380</width>
+    <height>976</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -1120,9 +1120,9 @@
       <property name="geometry">
        <rect>
         <x>890</x>
-        <y>510</y>
+        <y>530</y>
         <width>231</width>
-        <height>191</height>
+        <height>171</height>
        </rect>
       </property>
       <property name="title">
@@ -1285,12 +1285,12 @@
        </property>
       </widget>
      </widget>
-     <widget class="Plot" name="plot" native="true">
+     <widget class="Plot" name="plot_monitor" native="true">
       <property name="geometry">
        <rect>
         <x>10</x>
         <y>380</y>
-        <width>511</width>
+        <width>421</width>
         <height>321</height>
        </rect>
       </property>
@@ -1508,6 +1508,9 @@
         <property name="text">
          <string>Stray Light Correction (recommended)</string>
         </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
        </widget>
       </widget>
       <widget class="QGroupBox" name="groupBox_11">
@@ -1711,13 +1714,49 @@
       <widget class="QTextEdit" name="StatusLabel_Settings">
        <property name="geometry">
         <rect>
-         <x>350</x>
+         <x>330</x>
          <y>310</y>
-         <width>91</width>
-         <height>40</height>
+         <width>131</width>
+         <height>24</height>
         </rect>
        </property>
       </widget>
+     </widget>
+     <widget class="Plot" name="plot_trace" native="true">
+      <property name="geometry">
+       <rect>
+        <x>890</x>
+        <y>380</y>
+        <width>231</width>
+        <height>141</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="Plot" name="plot_spectra" native="true">
+      <property name="geometry">
+       <rect>
+        <x>450</x>
+        <y>380</y>
+        <width>421</width>
+        <height>321</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="PlotMeasuredSpectraChk">
+      <property name="geometry">
+       <rect>
+        <x>450</x>
+        <y>710</y>
+        <width>161</width>
+        <height>19</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Plot Measured Spectra</string>
+      </property>
+      <property name="checked">
+       <bool>true</bool>
+      </property>
      </widget>
     </widget>
    </widget>
@@ -1727,7 +1766,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1216</width>
+     <width>1380</width>
      <height>21</height>
     </rect>
    </property>
@@ -1791,7 +1830,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
  </buttongroups>
 </ui>

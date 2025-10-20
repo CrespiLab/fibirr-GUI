@@ -47,39 +47,6 @@ class Worker(QObject):
         self.finished.emit()
         return
 
-class Logger:
-    def __init__(self, filename):
-        self.filename = self._get_unique_filename(filename)
-        try:
-            with open(self.filename, "x", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow(["Cycle", "Time (YYYY-MM-DD_HH:MI:SS)", "Timestamp (s)", "Event"])
-        except:
-            print("opening file was unsuccessful (unknown error)")
-
-    def _get_unique_filename(self, base_filename):
-        """
-        If 'log.csv' exists, make 'log_2.csv', 'log_3.csv', etc.
-        """
-        if not os.path.exists(base_filename):
-            return base_filename
-
-        name, ext = os.path.splitext(base_filename)
-        i = 2
-        while os.path.exists(f"{name}_{i}{ext}"):
-            i += 1
-        return f"{name}_{i}{ext}"
-
-    def log(self, event):
-        time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S.%f")
-        timestamp = (globals.m_DateTime_start.msecsTo(QDateTime.currentDateTime()))/1000
-        
-        print(f"   timestamp: {timestamp}")
-        
-        with open(self.filename, mode="a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([globals.m_Cycle, time, timestamp, event])
-
 class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     timer = QTimer() 
     SPECTR_LIST_COLUMN_COUNT = 4
@@ -130,6 +97,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.ContinuousRBtn.toggled.connect(self.handle_radio_selection)
         self.KineticsRBtn.toggled.connect(self.handle_radio_selection)
         self.IrrKinRBtn.toggled.connect(self.handle_radio_selection)
+        
+        self.Mode_Scope.toggled.connect(self.handle_radio_selection)
+        self.Mode_Absorbance.toggled.connect(self.handle_radio_selection)
+        
         self.handle_radio_selection()
         
         self.ContinuousRBtn.setEnabled(False) ##!!! TURN ON WHEN FUNCTION IS READY
@@ -441,7 +412,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
         if (self.KineticsRBtn.isChecked()):
             globals.AcquisitionMode = "Kin"
-            self.logger = Logger(f"{globals.AutoSaveFolder}/log.csv") ## initialise logger for timestamps
+            self.logger = DataHandling.Logger(f"{globals.AutoSaveFolder}/log.csv", "log") ## initialise logger for timestamps
+            self.recent_spectra_Abs = DataHandling.Logger(f"{globals.AutoSaveFolder}/allspectra_Abs.csv", "spectra")
+            self.recent_spectra_Abs.save_wavelengths(globals.wavelength)
+            self.recent_spectra_Int = DataHandling.Logger(f"{globals.AutoSaveFolder}/allspectra_Int.csv", "spectra")
+            self.recent_spectra_Int.save_wavelengths(globals.wavelength)
             
             ##!!! ADD WARNING:
                 ## if l_interval < 2
@@ -462,7 +437,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 globals.AcquisitionMode = "IrrKin" 
                 globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
                 globals.l_interval = int(self.IntervalEdt.text())
-                self.logger = Logger(f"{globals.AutoSaveFolder}/log.csv") ## initialise logger for timestamps
+                self.logger = DataHandling.Logger(f"{globals.AutoSaveFolder}/log.csv", "log") ## initialise logger for timestamps
+                self.recent_spectra_Abs = DataHandling.Logger(f"{globals.AutoSaveFolder}/allspectra_Abs.csv", "spectra")
+                self.recent_spectra_Abs.save_wavelengths(globals.wavelength)
+                self.recent_spectra_Int = DataHandling.Logger(f"{globals.AutoSaveFolder}/allspectra_Int.csv", "spectra")
+                self.recent_spectra_Int.save_wavelengths(globals.wavelength)
                 
                 #!!! MAKE SLIDER AND PERCENTAGE FIELD INACTIVE DURING MEASUREMENT
                 
@@ -625,7 +604,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if self.cancelled == False:
             print(f"Irradiation Kinetics measurement done ({nummeas} measurements)")
         
-        self.log_autoQY = Logger(f"{globals.AutoSaveFolder}/log_for_autoQY.csv")
+        self.log_autoQY = DataHandling.Logger(f"{globals.AutoSaveFolder}/log_for_autoQY.csv", "log")
         DataHandling.ConvertTimestamps(self.logger.filename, self.log_autoQY.filename) ## generate log file meant for autoQY: timestamps of actual irradiation times
         
         self.StartMeasBtn.setEnabled(True)
@@ -776,15 +755,29 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if (self.DisableGraphChk.isChecked() == False):
             if (self.Mode_Scope.isChecked()):
                 if globals.MeasurementType == "Dark":
-                    self.plot.update_plot(globals.DarkSpectrum)
+                    self.plot_monitor.update_plot(globals.DarkSpectrum)
                 elif globals.MeasurementType == "Ref":
-                    self.plot.update_plot(globals.RefSpectrum_DarkSLSCorr) ## plot.py/update_plot
+                    self.plot_monitor.update_plot(globals.RefSpectrum_DarkSLSCorr) ## plot.py/update_plot
                 elif globals.MeasurementType == "Measurement":
-                    self.plot.update_plot(globals.ScopeSpectrum_DarkSLSCorr)
+                    self.plot_monitor.update_plot(globals.ScopeSpectrum_DarkSLSCorr)
             elif (self.Mode_Absorbance.isChecked()):
-                self.plot.update_absorbanceplot()
+                self.plot_monitor.update_absorbanceplot()
             else:
                 QMessageBox.warning(self, "Error", "Something wrong with Measurement Mode")                
+        
+        if (self.PlotMeasuredSpectraChk.isChecked() == True):
+            if (self.Mode_Scope.isChecked()):
+                if globals.AcquisitionMode in ("Kin", "IrrKin"):
+                    dataframe = self.recent_spectra_Int.load_df_spectra()
+                    self.plot_spectra.recent_spectra(dataframe)
+            elif (self.Mode_Absorbance.isChecked()):
+                if globals.AcquisitionMode in ("Kin", "IrrKin"):
+                    dataframe = self.recent_spectra_Abs.load_df_spectra()
+                    self.plot_spectra.recent_spectra(dataframe)
+            else:
+                # QMessageBox.warning(self, "Error", "Something wrong with Measurement Mode")
+                print("Something wrong with Measurement Mode")
+        
         return
 
     def record_event(self, event_name):
@@ -796,8 +789,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def auto_save(self, foldername, mode, spectrum):
         '''
         Saves spectrum as .csv file
-        ##!!! CAN BE SIMPLIFIED
-
         Parameters
         ----------
         filename : string
@@ -812,6 +803,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         None.
 
         '''
+        ##!!! MOVE TO Class DataHandling.Logger in DataHandling
+        
         FileObject = f"{foldername}/{mode}.csv"
         data_vstack = np.vstack((globals.wavelength,
                                      spectrum))
@@ -820,7 +813,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         xydata.to_csv(FileObject,index=False)
         # print(f"{mode} spectrum auto-saved as {FileObject}")
 
-        ##!!! IF FILE ALREADY EXISTS: ADD A NUMBER
+        ##!!! IF FILE ALREADY EXISTS: ADD A NUMBER for Single Mode
 
         self.statusBar.showMessage(f"{globals.MeasurementType} Spectrum auto-saved as {FileObject}")
 
@@ -928,6 +921,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                     globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
                                     globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
                                     self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_noSLS_{globals.m_Measurements}", globals.AbsSpectrum)
+
+                            #####################################
+                            ########## SAVE IN ONE FILE ##########
+                            #####################################
+                            if globals.AcquisitionMode in ("Kin", "IrrKin"):
+                                if (self.Mode_Absorbance.isChecked()): ## Absorbance mode
+                                    self.recent_spectra_Abs.build_df_spectra(globals.AbsSpectrum, globals.m_Measurements)
+                                elif (self.Mode_Scope.isChecked()):
+                                    self.recent_spectra_Int.build_df_spectra(globals.ScopeSpectrum_DarkSLSCorr, globals.m_Measurements)
 
                         #####################################
                         else:
@@ -1253,6 +1255,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_NrCyclesEdt.setEnabled(True)
             self.IntervalEdt.setEnabled(True)
             self.label_IntervalEdt.setEnabled(True)
+        
+        if self.Mode_Scope.isChecked():
+            globals.MeasurementMode = "Int"
+        if self.Mode_Absorbance.isChecked():
+            globals.MeasurementMode = "Abs"
         
     def handle_textfield_change(self):
         ##!!! SHOULD BE A FLOAT (to allow, e.g., 3.5 ms)

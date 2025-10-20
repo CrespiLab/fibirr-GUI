@@ -44,7 +44,7 @@ class Plot(QtWidgets.QWidget):
 
     def update_absorbanceplot(self):
         self.canvas.ax.clear()
-        self.canvas.ax.set_xlabel("Wavelength [nm]")
+        self.canvas.ax.set_xlabel("Wavelength (nm)")
         self.canvas.ax.set_ylabel("Absorbance")
         self.canvas.ax.plot(globals.wavelength, globals.AbsSpectrum)
         ############
@@ -52,5 +52,31 @@ class Plot(QtWidgets.QWidget):
         self.canvas.ax.set_ylim(-0.05,1.5)
         ############
         self.canvas.draw()
-        self.show()    
+        self.show()
         return
+
+    def recent_spectra(self, df):
+        self.canvas.ax.clear()
+        self.canvas.ax.set_xlabel("Wavelength (nm)")
+        if globals.MeasurementMode == "Abs":
+            self.canvas.ax.set_ylabel("Absorbance")
+            self.canvas.ax.set_xlim(250,1330)
+            self.canvas.ax.set_ylim(-0.05,1.5)
+        elif globals.MeasurementMode == "Int":
+            self.canvas.ax.set_ylabel("Counts (Dark- and SLS-Corrected)")
+        ############
+        for i in range(1,len(df.columns)):
+            self.canvas.ax.plot(df[df.columns[0]],df[df.columns[i]])
+        ############
+        self.canvas.draw()
+        self.show()
+        print("plot recent spectra")
+        return
+    
+    def plot_trace(self):
+        self.canvas.ax.clear()
+        self.canvas.ax.set_xlabel("Measurement")
+        self.canvas.ax.set_ylabel("Absorbance")
+        
+        
+        
