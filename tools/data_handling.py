@@ -64,18 +64,17 @@ class Logger:
         dataframe = pd.read_csv(self.filename)
         return dataframe
     
+    def save_spectrum(self, wavelengths, spectrum, data_header):
+        ''' Save spectrum as .csv '''
+        data_vstack = np.vstack((wavelengths, spectrum))
+        data_transposed = np.transpose(data_vstack)
+        xydata = pd.DataFrame(data_transposed,columns=["Wavelength (nm)", f"{data_header}"])
+        xydata.to_csv(self.filename,index=False)
+    
     def trace_wavelength(self, wavelength_of_interest):
         df = pd.read_csv(self.filename)
-        # print(f"df.columns[0]: {df.columns[0]}")
-        
-        # print(f"df[df.columns[0]]:\n{df[df.columns[0]]}")
-        
         closest_index = (df[df.columns[0]] - wavelength_of_interest).abs().idxmin()
-        print(f"closest_index: {closest_index}")
-        
         closest_wavelength = df.loc[closest_index, df.columns[0]]
-        print(f"closest_wavelength: {closest_wavelength}")
-        
         return closest_index, closest_wavelength
         
 def ConvertTimestamps(filename_log, filename_log_autoQY):

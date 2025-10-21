@@ -306,6 +306,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if self.measconfig.m_IntegrationTime != former_integration_time: ## If Integration Time is changed (not Nr. Averages): need to re-record Dark and Ref
             print(f"Integration Time changed from {former_integration_time} to {self.measconfig.m_IntegrationTime}\nDark and Ref need to be re-recorded")
             self.reset_RefDark()
+            ##!!! UNLOAD DARK AND REF
     ###########################################
 
     @pyqtSlot()
@@ -831,7 +832,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             pass
 
     @pyqtSlot()
-    def auto_save(self, foldername, mode, spectrum):
+    def auto_save(self, foldername, mode, spectrum, data_header):
         '''
         Saves spectrum as .csv file
         Parameters
@@ -848,18 +849,16 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         None.
 
         '''
+        if globals.AcquisitionMode in ("Kin", "IrrKin"):
+            ##!!! CHANGE MEASUREMENT NR TO: 0001, 0002, ..., 0118, etc.
+            filepath = f"{foldername}/{mode}_{globals.m_Measurements}.csv"
+        else:
+            filepath = f"{foldername}/{mode}.csv"
+        
         if self.ChkAutoSaveFolder.isChecked() or mode in ("Dark", "Ref"):
-            FileObject = f"{foldername}/{mode}.csv"
-            data_vstack = np.vstack((globals.wavelength,
-                                         spectrum))
-            data_transposed = np.transpose(data_vstack)
-            xydata = pd.DataFrame(data_transposed,columns=["Wavelength (nm)","Pixel values"])
-            xydata.to_csv(FileObject,index=False)
-            # print(f"{mode} spectrum auto-saved as {FileObject}")
-    
-            ##!!! IF FILE ALREADY EXISTS: ADD A NUMBER for Single Mode
-    
-            self.statusBar.showMessage(f"{globals.MeasurementType} Spectrum auto-saved as {FileObject}")
+            file = DataHandling.Logger(filepath, "spectra") ## initialise logger for spectrum savefile
+            file.save_spectrum(globals.wavelength, spectrum, data_header)
+            self.statusBar.showMessage(f"{mode} Spectrum auto-saved as {file}")
         else:
             print("Auto-Saving turned off")
 
@@ -892,15 +891,15 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         if globals.MeasurementType == "Dark":
                             globals.DarkSpectrum_doublearray = globals.spectraldata
                             globals.DarkSpectrum = globals.DarkSpectrum_doublearray[:globals.pixels]
-                            self.auto_save(savefolder, "Dark", globals.DarkSpectrum)
+                            self.auto_save(savefolder, "Dark", globals.DarkSpectrum, "Intensity")
                         elif globals.MeasurementType == "Ref":
                             globals.RefSpectrum_doublearray = globals.spectraldata
                             globals.RefSpectrum = globals.RefSpectrum_doublearray[:globals.pixels]
-                            self.auto_save(savefolder, "Ref", globals.RefSpectrum)
+                            self.auto_save(savefolder, "Ref", globals.RefSpectrum, "Intensity")
                             
                             #### Dark-Corrected ####
                             globals.RefSpectrum_DarkCorr = [globals.RefSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
-                            self.auto_save(savefolder, "Ref_DarkCorr", globals.RefSpectrum_DarkCorr)
+                            self.auto_save(savefolder, "Ref_DarkCorr", globals.RefSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
                             
                             #####################################
                             if self.SLSCorrCheck.isChecked():
@@ -918,7 +917,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                                                   SLSfactor,
                                                                   globals.RefSpectrum_DarkCorr_doublearray)
                                 globals.RefSpectrum_DarkSLSCorr = list(globals.RefSpectrum_DarkSLSCorr_doublearray) # convert to list
-                                self.auto_save(savefolder, "Ref_DarkSLSCorr", globals.RefSpectrum_DarkSLSCorr)
+                                self.auto_save(savefolder, "Ref_DarkSLSCorr", globals.RefSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
                             
                             ##!!! SAVE ALL REFERENCE SPECTRA IN ONE FILE
 
@@ -929,8 +928,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             #### Dark Correction ####
                             globals.ScopeSpectrum_DarkCorr = [globals.ScopeSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
 
-                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_{globals.m_Measurements}", globals.ScopeSpectrum)
-                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkCorr)
+                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int", globals.ScopeSpectrum, "Intensity")
+                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr", globals.ScopeSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
                             
                             #####################################
                             ############### SLS #################
@@ -952,8 +951,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                                                   globals.ScopeSpectrum_DarkCorr_doublearray)
                                 globals.ScopeSpectrum_DarkSLSCorr = list(globals.ScopeSpectrum_DarkSLSCorr_doublearray) # convert to list
                                 
-                                ##!!! CHANGE MEASUREMENT NR HERE (OR IN AUTO-SAVE FUNCTION): add 0s; 0001, 0002, ..., 0118, etc.
-                                self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr_{globals.m_Measurements}", globals.ScopeSpectrum_DarkSLSCorr)
+                                self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr", globals.ScopeSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
                         
                             #####################################
                             ########## ABSORBANCE MODE ##########
@@ -962,11 +960,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                 if self.SLSCorrCheck.isChecked():
                                     globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
                                     globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
-                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_{globals.m_Measurements}", globals.AbsSpectrum)
+                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs", globals.AbsSpectrum, "Absorbance")
                                 else:
                                     globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
                                     globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
-                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_noSLS_{globals.m_Measurements}", globals.AbsSpectrum)
+                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_noSLS", globals.AbsSpectrum, "Absorbance (No SLS Correction)")
 
                             #####################################
                             ########## SAVE IN ONE FILE ##########
