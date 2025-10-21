@@ -56,9 +56,10 @@ def SetToZero_twelvebitadjusted():
 def initialise_Arduino():
     """ Start COM port communication with Arduino (unless TEST MODE is on) """
     if Settings.MODE_LED == "TEST":
-        pass
+        Settings.LED_initialisation = "DEMO Mode"
     else:
         Settings.arduino = serial.Serial(port = globals.ArduinoCOMport, baudrate=115200, timeout=.1) ## COM port default defined in settings.py
+        Settings.LED_initialisation = "SUCCESS"
         # time.sleep(1) ## need to wait a bit after opening the communication (if using it immediately after intialisation)
 
 def AdjustMaxCurrent(LED):

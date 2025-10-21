@@ -99,14 +99,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.ContinuousRBtn.toggled.connect(self.handle_radio_selection)
         self.KineticsRBtn.toggled.connect(self.handle_radio_selection)
         self.IrrKinRBtn.toggled.connect(self.handle_radio_selection)
-        
         self.ScopeModeBtn.toggled.connect(self.handle_radio_selection)
         self.AbsorbanceModeBtn.toggled.connect(self.handle_radio_selection)
-        
         self.PlotTraceChk.toggled.connect(self.handle_radio_selection)
         self.TraceWavelengthChk_1.toggled.connect(self.handle_radio_selection)
         self.TraceWavelengthChk_2.toggled.connect(self.handle_radio_selection)
-        
         self.handle_radio_selection()
         
         self.ContinuousRBtn.setEnabled(False) ##!!! TURN ON WHEN FUNCTION IS READY
@@ -311,8 +308,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StatusLabel_Settings.setText("Settings saved")
         if self.measconfig.m_IntegrationTime != former_integration_time: ## If Integration Time is changed (not Nr. Averages): need to re-record Dark and Ref
             print(f"Integration Time changed from {former_integration_time} to {self.measconfig.m_IntegrationTime}\nDark and Ref need to be re-recorded")
-            self.StatusLabel_Dark.setText("") ## show empty
-            self.StatusLabel_Ref.setText("") ## show empty
+            self.reset_RefDark()
     ###########################################
 
     @pyqtSlot()
@@ -351,7 +347,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.RefMeasBtn.setEnabled(True)
         return
 
-##!!! ADD provision that Dark Measurement needs to have been carried out
     @pyqtSlot()
     def on_RefMeasBtn_clicked(self):
         print("on_RefMeasBtn_clicked")
@@ -371,6 +366,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_NrFailures.setText("{0:d}".format(0))
         self.RefMeasBtn.setEnabled(False)
         self.One_Measurement()
+        self.StatusLabel_Ref.setEnabled(True)
         self.StatusLabel_Ref.setText(u"\u2713") ## show checkmark
         self.RefMeasBtn.setEnabled(True)
         self.AbsorbanceModeBtn.setEnabled(True) ## enable Absorbance Mode
@@ -706,7 +702,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             LEDControl.initialise_Arduino() ## start communication with Arduino
             self.update_dropdown() # Initial calculation
             self.on_LED_off_manual_clicked() # extra caution
-            self.SpectrometerList.setItem(0, 3, QTableWidgetItem("SUCCESS")) 
+            self.SpectrometerList.setItem(0, 3, QTableWidgetItem(f"{Settings.LED_initialisation}")) 
         except serial.serialutil.SerialException as e:
             QMessageBox.critical(self, "LED INITIALISATION FAILED", f"{e}")
             self.SpectrometerList.setItem(0, 3, QTableWidgetItem("FAIL")) 
@@ -1141,8 +1137,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
         globals.wavelength_doublearray = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
         globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
-        self.DarkMeasBtn.setEnabled(True)
-        self.RefMeasBtn.setEnabled(False)
+        self.reset_RefDark()
         return
 
     def DefaultSettings(self):
@@ -1343,6 +1338,16 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.StatusLabel_Settings.setText("Settings NOT saved!")
         if int(self.AvgEdt.text()) != self.measconfig.m_NrAverages:
             self.StatusLabel_Settings.setText("Settings NOT saved!")
+    
+    def reset_RefDark(self):
+        self.StatusLabel_Dark.setText("") ## show empty
+        self.StatusLabel_Ref.setText("") ## show empty
+        self.StatusLabel_Ref.setEnabled(False)
+        self.RefMeasBtn.setEnabled(False)
+        self.DarkMeasBtn.setEnabled(True)
+        self.ScopeModeBtn.setChecked(True)
+        self.AbsorbanceModeBtn.setEnabled(False)
+        print(f"globals.MeasurementMode: {globals.MeasurementMode}")
     
     ###########################################################################
     ###########################################################################
