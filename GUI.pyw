@@ -10,13 +10,10 @@ Notes:
     -- For buttons, do not use explicit connect together with the on_ notation, or you will get two signals instead of one!
     -- If you leave out the @pyqtSlot() line, you will also get an extra signal! So you might even get three!
 """
-import os
 import sys
 import ctypes
 import time
-from datetime import datetime
 import serial ## for communication with Arduino COM port
-import csv
 
 import numpy as np
 import pandas as pd
@@ -48,17 +45,17 @@ class Worker(QObject):
         return
 
 class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
-    timer = QTimer() 
+    # timer = QTimer() 
     SPECTR_LIST_COLUMN_COUNT = 4
     newdata = pyqtSignal(int, int) ## define new signal as a class attribute # (int,int) for callback
-        ## is used below in __init__
+        ## is connected to handle_newdata below in __init__
     cancel = pyqtSignal()
     cancelled = False
     
     def __init__(self, parent=None):
         QMainWindow.__init__(self, parent)
         self.setupUi(self)
-        #self.setWindowIcon() ##!!! add icon here or in Designer
+        # self.setWindowIcon() ##!!! add icon here or in Designer
         # self.showMaximized()
         
         #self.PreScanChk.hide()
@@ -109,8 +106,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.ContinuousRBtn.setEnabled(False) ##!!! TURN ON WHEN FUNCTION IS READY
         ###########################################
         self.SpectrometerList.clicked.connect(self.on_SpectrometerList_clicked)
-        self.timer.timeout.connect(self.update_plot) ## This signal is emitted when the timer times out.
-        self.timer.stop() ## Stops the timer.
+        # self.timer.timeout.connect(self.update_plot) ## This signal is emitted when the timer times out.
+        # self.timer.stop() ## Stops the timer.
         ###########################################
         self.newdata.connect(self.handle_newdata) ## this connects signal: pyqtSignal(int, int), to slot: self.handle_newdata
         ###########################################
@@ -160,7 +157,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     @pyqtSlot()
     def on_CloseCommBtn_clicked(self):
         # First make sure that there is no measurement running, AVS_Done() must be called when 
-        # there is no measurement running!
+            # there is no measurement running!
         if (globals.dev_handle != ava.INVALID_AVS_HANDLE_VALUE):
             ava.AVS_StopMeasure(globals.dev_handle)
             ava.AVS_Deactivate(globals.dev_handle) 
@@ -232,7 +229,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 self.SpectrometerList.setItem(x, 4, QTableWidgetItem(RemoteHostIpItem))    
                 x += 1 
 
-        return 
+        return l_RequiredSize
 
     @pyqtSlot()
     def on_ActivateBtn_clicked(self):
@@ -278,7 +275,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 # self.DstrRBtn.setEnabled(dtype == 3)  # only available on AS7010
                 ######
                 ava.AVS_SetDigOut(globals.dev_handle, ava.PortID_Internal_LightSource, ava.SHUTTER_CLOSE) ## close shutter
-        return
+        return m_Identity
 
     @pyqtSlot()
     def on_SettingsBtn_clicked(self):
@@ -371,7 +368,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.RefMeasBtn.setEnabled(True)
         self.AbsorbanceModeBtn.setEnabled(True) ## enable Absorbance Mode
         self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
-        return
+        return ret
 
     @pyqtSlot()
     def on_StartMeasBtn_clicked(self):
@@ -467,7 +464,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             print("Finished thread setup.")
         else:
             print("self.worker_meas.func is None")
-        return
+        return ret
 
 ##!!! maybe make a function for the dark measurement
     # def Dark_Measurement(self):
@@ -622,7 +619,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     @pyqtSlot()
     def on_StopMeasBtn_clicked(self): 
         print("=== StopMeasBtn clicked ===")
-        self.cancel.emit()
+        self.cancel.emit() ## connected to cancel_meas(self)
         time.sleep(1)
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
@@ -632,7 +629,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def cancel_meas(self):
         ret = ava.AVS_StopMeasure(globals.dev_handle)
         self.cancelled = True
-        return
+        return ret
 
     @pyqtSlot()
     def on_AutoSaveFolderBtn_clicked(self):
@@ -1108,25 +1105,27 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.LowNoiseRBtn.setChecked(True)  # LowNoise default for HAMS9201
             self.HighSensitivityRBtn.setChecked(False)
             ava.AVS_SetSensitivityMode(globals.dev_handle, 0)
-        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):    
+        elif (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_TCD1304):    
             self.PreScanChk.show()    
             self.PreScanChk.setCheckState(Qt.Checked)
             l_Res = ava.AVS_SetPrescanMode(globals.dev_handle, self.PreScanChk.isChecked()) 
-        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB):
+        elif (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU256LSB):
             self.SetNirSensitivityRgrp.show()
             self.LowNoiseRBtn.setChecked(False)
             self.HighSensitivityRBtn.setChecked(True)  # High Sensitive default for SU256LSB
             l_Res = ava.AVS_SetSensitivityMode(globals.dev_handle, 1)
-        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB):
+        elif (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_SU512LDB):
             self.SetNirSensitivityRgrp.show()
             self.LowNoiseRBtn.setChecked(False)
             self.HighSensitivityRBtn.setChecked(True)  # High Sensitive default for SU512LDB
             l_Res = ava.AVS_SetSensitivityMode(globals.dev_handle, 1) 
-        if (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMG9208_512):
+        elif (globals.DeviceData.m_Detector_m_SensorType == ava.SENS_HAMG9208_512):
             self.SetNirSensitivityRgrp.show()
             self.LowNoiseRBtn.setChecked(True)  # low noise default
             self.HighSensitivityRBtn.setChecked(False)
-            l_Res = ava.AVS_SetSensitivityMode(globals.dev_handle, 0) 
+            l_Res = ava.AVS_SetSensitivityMode(globals.dev_handle, 0)
+        else: 
+            l_Res = None
 
         ret = ava.AVS_UseHighResAdc(globals.dev_handle, True)
         ret = ava.AVS_EnableLogging(False)
@@ -1138,7 +1137,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.wavelength_doublearray = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
         globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
         self.reset_RefDark()
-        return
+        return l_Res, ret
 
     def DefaultSettings(self):
         '''
@@ -1150,22 +1149,16 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         l_NanoSec = float(self.IntDelayEdt.text())
         self.measconfig.m_IntegrationDelay = int(6.0*(l_NanoSec+20.84)/125.0) ## from Avantes
         self.measconfig.m_IntegrationTime = 3 # default integration time (ms)
-        print(f"self.measconfig.m_IntegrationTime: {self.measconfig.m_IntegrationTime}")
         self.IntTimeEdt.setText(f"{self.measconfig.m_IntegrationTime:0.1f}") 
         
         self.measconfig.m_NrAverages = 100
         self.AvgEdt.setText(f"{self.measconfig.m_NrAverages:0d}") ## default # averages
         
         self.delay_acq = (self.measconfig.m_IntegrationTime * self.measconfig.m_NrAverages)/1000 # acquisition time (s)
-        print(f"self.delay_acq: {self.delay_acq} s")
         
         self.delay_afterShutter_Open = 0.5 # seconds
         self.delay_beforeShutter_Close = 0.1 # seconds
         self.delay_afterShutter_Close = 0.1 # seconds
-        
-        print(f"self.delay_afterShutter_Open: {self.delay_afterShutter_Open} s")
-        print(f"self.delay_beforeShutter_Close: {self.delay_beforeShutter_Close} s")
-        print(f"self.delay_afterShutter_Close: {self.delay_afterShutter_Close} s")
         
         globals.delays_aroundShutter = self.delay_afterShutter_Open + self.delay_afterShutter_Close
         globals.delays_Shutter_plus_LED = globals.delays_aroundShutter + globals.delays_aroundLED
@@ -1198,8 +1191,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         globals.AutoSaveFolder = Settings.Default_AutoSaveFolder
         self.update_label_AutoSaveFolder()
+        self.PrintSettings()
         ##!!! SET DEFAULT
-        
+    
     def DisconnectGui(self):
         self.DetectorEdt.clear()
         self.NrPixelsEdt.clear()
@@ -1349,6 +1343,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.AbsorbanceModeBtn.setEnabled(False)
         print(f"globals.MeasurementMode: {globals.MeasurementMode}")
     
+    def PrintSettings(self):
+        print(f"self.measconfig.m_IntegrationTime: {self.measconfig.m_IntegrationTime}")
+        print(f"self.delay_acq: {self.delay_acq} s")
+        print(f"self.delay_afterShutter_Open: {self.delay_afterShutter_Open} s")
+        print(f"self.delay_beforeShutter_Close: {self.delay_beforeShutter_Close} s")
+        print(f"self.delay_afterShutter_Close: {self.delay_afterShutter_Close} s")
+    
     ###########################################################################
     ###########################################################################
     ###########################################################################
@@ -1359,7 +1360,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.dev_handle = ava.INVALID_AVS_HANDLE_VALUE
         self.on_UpdateListBtn_clicked()
         self.DisconnectGui()
-        return
+        return ret
 
     @pyqtSlot()
     def on_AnalogIoBtn_clicked(self):
