@@ -460,7 +460,7 @@
       <widget class="QPushButton" name="StartMeasBtn">
        <property name="geometry">
         <rect>
-         <x>260</x>
+         <x>270</x>
          <y>320</y>
          <width>131</width>
          <height>24</height>
@@ -473,7 +473,7 @@
       <widget class="QPushButton" name="StopMeasBtn">
        <property name="geometry">
         <rect>
-         <x>400</x>
+         <x>410</x>
          <y>320</y>
          <width>131</width>
          <height>24</height>
@@ -488,7 +488,7 @@
         <rect>
          <x>10</x>
          <y>110</y>
-         <width>181</width>
+         <width>201</width>
          <height>161</height>
         </rect>
        </property>
@@ -599,7 +599,7 @@
         <rect>
          <x>10</x>
          <y>20</y>
-         <width>181</width>
+         <width>201</width>
          <height>80</height>
         </rect>
        </property>
@@ -632,20 +632,40 @@
          <string>Record Reference Spectrum</string>
         </property>
        </widget>
+       <widget class="QTextEdit" name="StatusLabel_Dark">
+        <property name="geometry">
+         <rect>
+          <x>170</x>
+          <y>20</y>
+          <width>21</width>
+          <height>24</height>
+         </rect>
+        </property>
+       </widget>
+       <widget class="QTextEdit" name="StatusLabel_Ref">
+        <property name="geometry">
+         <rect>
+          <x>170</x>
+          <y>50</y>
+          <width>21</width>
+          <height>24</height>
+         </rect>
+        </property>
+       </widget>
       </widget>
       <widget class="QGroupBox" name="groupBox_7">
        <property name="geometry">
         <rect>
          <x>10</x>
          <y>280</y>
-         <width>181</width>
-         <height>61</height>
+         <width>201</width>
+         <height>71</height>
         </rect>
        </property>
        <property name="title">
         <string>Measurement Mode</string>
        </property>
-       <widget class="QRadioButton" name="Mode_Absorbance">
+       <widget class="QRadioButton" name="AbsorbanceModeBtn">
         <property name="geometry">
          <rect>
           <x>20</x>
@@ -661,7 +681,7 @@
          <string notr="true">buttonGroup_2</string>
         </attribute>
        </widget>
-       <widget class="QRadioButton" name="Mode_Scope">
+       <widget class="QRadioButton" name="ScopeModeBtn">
         <property name="geometry">
          <rect>
           <x>20</x>
@@ -686,7 +706,7 @@
         <rect>
          <x>260</x>
          <y>20</y>
-         <width>271</width>
+         <width>281</width>
          <height>251</height>
         </rect>
        </property>
@@ -722,7 +742,7 @@
        <widget class="QComboBox" name="DropDownBox_LEDs">
         <property name="geometry">
          <rect>
-          <x>20</x>
+          <x>30</x>
           <y>30</y>
           <width>101</width>
           <height>20</height>
@@ -750,7 +770,7 @@
        <widget class="QLineEdit" name="Label_MaxCurrent">
         <property name="geometry">
          <rect>
-          <x>140</x>
+          <x>150</x>
           <y>30</y>
           <width>61</width>
           <height>20</height>
@@ -763,7 +783,7 @@
        <widget class="QLabel" name="label_3">
         <property name="geometry">
          <rect>
-          <x>140</x>
+          <x>150</x>
           <y>10</y>
           <width>71</width>
           <height>25</height>
@@ -788,7 +808,7 @@
        <widget class="QLabel" name="label_4">
         <property name="geometry">
          <rect>
-          <x>210</x>
+          <x>220</x>
           <y>30</y>
           <width>16</width>
           <height>16</height>
@@ -813,7 +833,7 @@
        <widget class="QSlider" name="horizontalSlider">
         <property name="geometry">
          <rect>
-          <x>20</x>
+          <x>30</x>
           <y>60</y>
           <width>101</width>
           <height>30</height>
@@ -832,7 +852,7 @@
        <widget class="QLineEdit" name="LEDPercentageEdt">
         <property name="geometry">
          <rect>
-          <x>140</x>
+          <x>150</x>
           <y>60</y>
           <width>61</width>
           <height>20</height>
@@ -842,7 +862,7 @@
        <widget class="QLabel" name="label_5">
         <property name="geometry">
          <rect>
-          <x>210</x>
+          <x>220</x>
           <y>60</y>
           <width>16</width>
           <height>16</height>
@@ -867,7 +887,7 @@
        <widget class="QGroupBox" name="groupBox_9">
         <property name="geometry">
          <rect>
-          <x>20</x>
+          <x>30</x>
           <y>120</y>
           <width>221</width>
           <height>91</height>
@@ -1065,7 +1085,7 @@
        <widget class="QPushButton" name="SetLEDsettings">
         <property name="geometry">
          <rect>
-          <x>80</x>
+          <x>90</x>
           <y>90</y>
           <width>101</width>
           <height>24</height>
@@ -1079,9 +1099,9 @@
       <widget class="QPushButton" name="AutoSaveFolderBtn">
        <property name="geometry">
         <rect>
-         <x>260</x>
+         <x>290</x>
          <y>280</y>
-         <width>131</width>
+         <width>111</width>
          <height>24</height>
         </rect>
        </property>
@@ -1092,7 +1112,7 @@
       <widget class="QLineEdit" name="Label_AutoSaveFolder">
        <property name="geometry">
         <rect>
-         <x>400</x>
+         <x>410</x>
          <y>280</y>
          <width>131</width>
          <height>24</height>
@@ -1102,17 +1122,20 @@
         <bool>true</bool>
        </property>
       </widget>
-      <widget class="QPushButton" name="RemoveAutoSaveFolderBtn">
+      <widget class="QCheckBox" name="ChkAutoSaveFolder">
        <property name="geometry">
         <rect>
-         <x>540</x>
+         <x>270</x>
          <y>280</y>
-         <width>21</width>
-         <height>24</height>
+         <width>16</width>
+         <height>19</height>
         </rect>
        </property>
        <property name="text">
-        <string>-</string>
+        <string/>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
        </property>
       </widget>
      </widget>
@@ -1866,6 +1889,22 @@
       </property>
       <property name="checked">
        <bool>true</bool>
+      </property>
+     </widget>
+     <widget class="QCheckBox" name="ChkExpFit">
+      <property name="geometry">
+       <rect>
+        <x>1250</x>
+        <y>710</y>
+        <width>101</width>
+        <height>19</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Exponential Fit</string>
+      </property>
+      <property name="checked">
+       <bool>false</bool>
       </property>
      </widget>
     </widget>

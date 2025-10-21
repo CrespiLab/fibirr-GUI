@@ -79,27 +79,29 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.ShowEepromBtn.setEnabled(False)
         self.ReadEepromBtn.setEnabled(False)
         self.WriteEepromBtn.setEnabled(False)
-        ###########################################
+        self.DarkMeasBtn.setEnabled(False)
+        self.RefMeasBtn.setEnabled(False)
+        self.AbsorbanceModeBtn.setEnabled(False)
         self.StartMeasBtn.setEnabled(False)
         self.StopMeasBtn.setEnabled(False)
         self.ResetSpectrometerBtn.setEnabled(False)        
+        ###########################################
         self.ConnectUSBRBtn.setChecked(True)
         self.ConnectEthernetRBtn.setChecked(False)
-        ###########################################
         self.SingleRBtn.setChecked(True)
         self.KineticsRBtn.setChecked(False)
         self.ContinuousRBtn.setChecked(False)
         self.IrrKinRBtn.setChecked(False)
-        self.Mode_Scope.setChecked(True)
-        self.Mode_Absorbance.setChecked(False)
+        self.ScopeModeBtn.setChecked(True)
+        self.AbsorbanceModeBtn.setChecked(False)
         ###########################################
         self.SingleRBtn.toggled.connect(self.handle_radio_selection)
         self.ContinuousRBtn.toggled.connect(self.handle_radio_selection)
         self.KineticsRBtn.toggled.connect(self.handle_radio_selection)
         self.IrrKinRBtn.toggled.connect(self.handle_radio_selection)
         
-        self.Mode_Scope.toggled.connect(self.handle_radio_selection)
-        self.Mode_Absorbance.toggled.connect(self.handle_radio_selection)
+        self.ScopeModeBtn.toggled.connect(self.handle_radio_selection)
+        self.AbsorbanceModeBtn.toggled.connect(self.handle_radio_selection)
         
         self.PlotTraceChk.toggled.connect(self.handle_radio_selection)
         self.TraceWavelengthChk_1.toggled.connect(self.handle_radio_selection)
@@ -284,6 +286,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     @pyqtSlot()
     def on_SettingsBtn_clicked(self):
         print("on_SettingsBtn_clicked")
+        former_integration_time = self.measconfig.m_IntegrationTime ## save former value
         self.measconfig.m_StartPixel = int(self.StartPixelEdt.text())
         self.measconfig.m_StopPixel = int(self.StopPixelEdt.text())
         self.measconfig.m_IntegrationTime = float(self.IntTimeEdt.text())
@@ -306,6 +309,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.measconfig.m_Trigger_m_Mode = 1
             ##!!! DEFINE m_Trigger_m_Mode = 1 : external Arduino-controlled shutter (change name?)
         self.StatusLabel_Settings.setText("Settings saved")
+        if self.measconfig.m_IntegrationTime != former_integration_time: ## If Integration Time is changed (not Nr. Averages): need to re-record Dark and Ref
+            print(f"Integration Time changed from {former_integration_time} to {self.measconfig.m_IntegrationTime}\nDark and Ref need to be re-recorded")
+            self.StatusLabel_Dark.setText("") ## show empty
+            self.StatusLabel_Ref.setText("") ## show empty
     ###########################################
 
     @pyqtSlot()
@@ -339,7 +346,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             time.sleep(self.delay_acq)
 
         print("Dark Measurement done")
+        self.StatusLabel_Dark.setText(u"\u2713") ## show checkmark
         self.DarkMeasBtn.setEnabled(True)
+        self.RefMeasBtn.setEnabled(True)
         return
 
 ##!!! ADD provision that Dark Measurement needs to have been carried out
@@ -362,7 +371,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_NrFailures.setText("{0:d}".format(0))
         self.RefMeasBtn.setEnabled(False)
         self.One_Measurement()
+        self.StatusLabel_Ref.setText(u"\u2713") ## show checkmark
         self.RefMeasBtn.setEnabled(True)
+        self.AbsorbanceModeBtn.setEnabled(True) ## enable Absorbance Mode
         self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
         return
 
@@ -416,11 +427,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
         if (self.KineticsRBtn.isChecked()):
             globals.AcquisitionMode = "Kin"
-            self.logger = DataHandling.Logger(f"{globals.AutoSaveFolder}/log.csv", "log") ## initialise logger for timestamps
-            self.recent_spectra_Abs = DataHandling.Logger(f"{globals.AutoSaveFolder}/allspectra_Abs.csv", "spectra")
-            self.recent_spectra_Abs.save_wavelengths(globals.wavelength)
-            self.recent_spectra_Int = DataHandling.Logger(f"{globals.AutoSaveFolder}/allspectra_Int.csv", "spectra")
-            self.recent_spectra_Int.save_wavelengths(globals.wavelength)
+            self.logger = self.create_logger("log") ## initialise logger for timestamps
+            self.recent_spectra_Abs = self.create_logger("allspectra_Abs")
+            self.recent_spectra_Int = self.create_logger("allspectra_Int")
+            self.save_recent_spectra()
             
             ##!!! ADD WARNING:
                 ## if l_interval < 2
@@ -441,11 +451,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 globals.AcquisitionMode = "IrrKin" 
                 globals.l_NrOfCycles = int(self.NrCyclesEdt.text())
                 globals.l_interval = int(self.IntervalEdt.text())
-                self.logger = DataHandling.Logger(f"{globals.AutoSaveFolder}/log.csv", "log") ## initialise logger for timestamps
-                self.recent_spectra_Abs = DataHandling.Logger(f"{globals.AutoSaveFolder}/allspectra_Abs.csv", "spectra")
-                self.recent_spectra_Abs.save_wavelengths(globals.wavelength)
-                self.recent_spectra_Int = DataHandling.Logger(f"{globals.AutoSaveFolder}/allspectra_Int.csv", "spectra")
-                self.recent_spectra_Int.save_wavelengths(globals.wavelength)
+                self.logger = self.create_logger("log") ## initialise logger for timestamps
+                self.recent_spectra_Abs = self.create_logger("allspectra_Abs")
+                self.recent_spectra_Int = self.create_logger("allspectra_Int")
+                self.save_recent_spectra()
                 
                 #!!! MAKE SLIDER AND PERCENTAGE FIELD INACTIVE DURING MEASUREMENT
                 
@@ -467,7 +476,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 ##!!! maybe make a function for the dark measurement
     # def Dark_Measurement(self):
         
-
     @pyqtSlot()
     def One_Measurement(self):
         ##!!! FIX apparent issue with delays: Continuous mode has higher intensity
@@ -607,9 +615,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         if self.cancelled == False:
             print(f"Irradiation Kinetics measurement done ({nummeas} measurements)")
-        
-        self.log_autoQY = DataHandling.Logger(f"{globals.AutoSaveFolder}/log_for_autoQY.csv", "log")
-        DataHandling.ConvertTimestamps(self.logger.filename, self.log_autoQY.filename) ## generate log file meant for autoQY: timestamps of actual irradiation times
+        if self.ChkAutoSaveFolder.isChecked():
+            self.log_autoQY = self.create_logger("log_for_autoQY")
+            DataHandling.ConvertTimestamps(self.logger.filename, self.log_autoQY.filename) ## generate log file meant for autoQY: timestamps of actual irradiation times
         
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
@@ -639,7 +647,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if folder:
             globals.AutoSaveFolder = folder
         else:
-            print("No folder selected.")
+            print("No auto-save folder selected.")
             globals.AutoSavefolder = Settings.Default_AutoSaveFolder
             ##!!! PRINT MESSAGE: NO AUTO-SAVE FOLDER SELECTED: REVERTED TO BACK-UP
                 ## CREATE BACK-UP FOLDER WITH NAME: DATE AND TIME
@@ -649,6 +657,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     def update_label_AutoSaveFolder(self):
         self.Label_AutoSaveFolder.setText(globals.AutoSaveFolder)
+        print(f"Auto-Save Folder: {globals.AutoSaveFolder}")
 
     ###########################################################################
     ###########################################################################
@@ -757,14 +766,14 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     @pyqtSlot()
     def update_plot(self):
         if (self.DisableGraphChk.isChecked() == False):
-            if (self.Mode_Scope.isChecked()):
+            if (self.ScopeModeBtn.isChecked()):
                 if globals.MeasurementType == "Dark":
                     self.plot_monitor.update_plot(globals.DarkSpectrum)
                 elif globals.MeasurementType == "Ref":
                     self.plot_monitor.update_plot(globals.RefSpectrum_DarkSLSCorr) ## plot.py/update_plot
                 elif globals.MeasurementType == "Measurement":
                     self.plot_monitor.update_plot(globals.ScopeSpectrum_DarkSLSCorr)
-            elif (self.Mode_Absorbance.isChecked()):
+            elif (self.AbsorbanceModeBtn.isChecked()):
                 self.plot_monitor.update_absorbanceplot()
             else:
                 QMessageBox.warning(self, "Error", "Something wrong with Measurement Mode")                
@@ -772,11 +781,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         #######################################################################
         
         if (self.PlotMeasuredSpectraChk.isChecked() == True):
-            if (self.Mode_Scope.isChecked()):
+            if (self.ScopeModeBtn.isChecked()):
                 if globals.AcquisitionMode in ("Kin", "IrrKin"):
                     dataframe = self.recent_spectra_Int.load_df_spectra()
                     self.plot_spectra.recent_spectra(dataframe)
-            elif (self.Mode_Absorbance.isChecked()):
+            elif (self.AbsorbanceModeBtn.isChecked()):
                 if globals.AcquisitionMode in ("Kin", "IrrKin"):
                     dataframe = self.recent_spectra_Abs.load_df_spectra()
                     self.plot_spectra.recent_spectra(dataframe)
@@ -794,25 +803,39 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                     globals.TraceWavelength_2 = int(self.TraceWavelength_2.text())
                     ##!!! ADD OPTION FOR 2 OR 3 TRACE WAVELENGTHS
             
-                if (self.Mode_Scope.isChecked()):
+                if (self.ScopeModeBtn.isChecked()):
                     if globals.AcquisitionMode in ("Kin", "IrrKin"):
                         dataframe = self.recent_spectra_Int.load_df_spectra()
                         index_1, wavelength_1 = self.recent_spectra_Int.trace_wavelength(globals.TraceWavelength_1)
                         self.plot_trace.trace(globals.m_Measurements, dataframe, index_1, wavelength_1)
-                elif (self.Mode_Absorbance.isChecked()):
+                elif (self.AbsorbanceModeBtn.isChecked()):
                     if globals.AcquisitionMode in ("Kin", "IrrKin"):
                         dataframe = self.recent_spectra_Abs.load_df_spectra()
                         index_1, wavelength_1 = self.recent_spectra_Abs.trace_wavelength(globals.TraceWavelength_1)
                         self.plot_trace.trace(globals.m_Measurements, dataframe, index_1, wavelength_1)
             else:
-                print("No trace wavelengths chosen")
+                pass
             
         return
 
+    def create_logger(self, name):
+        if self.ChkAutoSaveFolder.isChecked():
+            logger = DataHandling.Logger(f"{globals.AutoSaveFolder}/{name}.csv", "log") ## initialise logger for timestamps
+        return logger
+    
+    def save_recent_spectra(self):
+        if self.ChkAutoSaveFolder.isChecked():
+            self.recent_spectra_Abs.save_wavelengths(globals.wavelength)
+            self.recent_spectra_Int.save_wavelengths(globals.wavelength)
+
     def record_event(self, event_name):
-        if globals.AcquisitionMode in ("Kin", "IrrKin"):
-            print(f"Event: {event_name}")
-            self.logger.log(event_name)
+        if self.ChkAutoSaveFolder.isChecked():
+            if globals.AcquisitionMode in ("Kin", "IrrKin"):
+                print(f"Event: {event_name}")
+                self.logger.log(event_name)
+        else:
+            # print("Auto-Saving turned off")
+            pass
 
     @pyqtSlot()
     def auto_save(self, foldername, mode, spectrum):
@@ -832,19 +855,20 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         None.
 
         '''
-        ##!!! MOVE TO Class DataHandling.Logger in DataHandling
-        
-        FileObject = f"{foldername}/{mode}.csv"
-        data_vstack = np.vstack((globals.wavelength,
-                                     spectrum))
-        data_transposed = np.transpose(data_vstack)
-        xydata = pd.DataFrame(data_transposed,columns=["Wavelength (nm)","Pixel values"])
-        xydata.to_csv(FileObject,index=False)
-        # print(f"{mode} spectrum auto-saved as {FileObject}")
-
-        ##!!! IF FILE ALREADY EXISTS: ADD A NUMBER for Single Mode
-
-        self.statusBar.showMessage(f"{globals.MeasurementType} Spectrum auto-saved as {FileObject}")
+        if self.ChkAutoSaveFolder.isChecked() or mode in ("Dark", "Ref"):
+            FileObject = f"{foldername}/{mode}.csv"
+            data_vstack = np.vstack((globals.wavelength,
+                                         spectrum))
+            data_transposed = np.transpose(data_vstack)
+            xydata = pd.DataFrame(data_transposed,columns=["Wavelength (nm)","Pixel values"])
+            xydata.to_csv(FileObject,index=False)
+            # print(f"{mode} spectrum auto-saved as {FileObject}")
+    
+            ##!!! IF FILE ALREADY EXISTS: ADD A NUMBER for Single Mode
+    
+            self.statusBar.showMessage(f"{globals.MeasurementType} Spectrum auto-saved as {FileObject}")
+        else:
+            print("Auto-Saving turned off")
 
 
     @pyqtSlot(int, int)
@@ -941,7 +965,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             #####################################
                             ########## ABSORBANCE MODE ##########
                             #####################################
-                            if (self.Mode_Absorbance.isChecked()): ## Absorbance mode
+                            if (self.AbsorbanceModeBtn.isChecked()): ## Absorbance mode
                                 if self.SLSCorrCheck.isChecked():
                                     globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
                                     globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
@@ -955,9 +979,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             ########## SAVE IN ONE FILE ##########
                             #####################################
                             if globals.AcquisitionMode in ("Kin", "IrrKin"):
-                                if (self.Mode_Absorbance.isChecked()): ## Absorbance mode
+                                if (self.AbsorbanceModeBtn.isChecked()): ## Absorbance mode
                                     self.recent_spectra_Abs.build_df_spectra(globals.AbsSpectrum, globals.m_Measurements)
-                                elif (self.Mode_Scope.isChecked()):
+                                elif (self.ScopeModeBtn.isChecked()):
                                     self.recent_spectra_Int.build_df_spectra(globals.ScopeSpectrum_DarkSLSCorr, globals.m_Measurements)
 
                         #####################################
@@ -1071,7 +1095,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     def ConnectGui(self):
         '''
-        Functions is activated upon activating the connection with the spectrometer,
+        Function is activated upon activating the connection with the spectrometer,
             i.e. by on_ActivateBtn_clicked
         '''
         versions = ava.AVS_GetVersionInfo(globals.dev_handle)
@@ -1117,6 +1141,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
         globals.wavelength_doublearray = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
         globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
+        self.DarkMeasBtn.setEnabled(True)
+        self.RefMeasBtn.setEnabled(False)
         return
 
     def DefaultSettings(self):
@@ -1176,6 +1202,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.IntervalEdt.setText("10") # default interval in seconds
         
         globals.AutoSaveFolder = Settings.Default_AutoSaveFolder
+        self.update_label_AutoSaveFolder()
         ##!!! SET DEFAULT
         
     def DisconnectGui(self):
@@ -1285,9 +1312,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.IntervalEdt.setEnabled(True)
             self.label_IntervalEdt.setEnabled(True)
         
-        if self.Mode_Scope.isChecked():
+        if self.ScopeModeBtn.isChecked():
             globals.MeasurementMode = "Int"
-        if self.Mode_Absorbance.isChecked():
+        if self.AbsorbanceModeBtn.isChecked():
             globals.MeasurementMode = "Abs"
             
         if (self.PlotTraceChk.isChecked() == False):
@@ -1309,8 +1336,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if self.TraceWavelengthChk_2.isChecked():
             self.label_Trace_2.setEnabled(True)
             self.TraceWavelength_2.setEnabled(True)
-            
-        
         
     def handle_textfield_change(self):
         ##!!! SHOULD BE A FLOAT (to allow, e.g., 3.5 ms)
