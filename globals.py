@@ -21,11 +21,20 @@ mSelectedDevRow = 0
 ########## ADDED BY ME ##########
 MeasurementType = ""
 AcquisitionMode = ""
+DarkSpectrum_doublearray = [0.0] * 4096
 DarkSpectrum = [0.0]
+RefSpectrum_doublearray = [0.0] * 4096
 RefSpectrum  = [0.0]
+RefSpectrum_DarkCorr_doublearray = [0.0] * 4096
 RefSpectrum_DarkCorr  = [0.0]
 RefSpectrum_DarkSLSCorr_doublearray = [0.0] * 4096
 RefSpectrum_DarkSLSCorr = [0.0]
+ScopeSpectrum_doublearray = [0.0] * 4096
 ScopeSpectrum = [0.0]
+ScopeSpectrum_DarkCorr_doublearray = [0.0] * 4096
 ScopeSpectrum_DarkCorr = [0.0]
+ScopeSpectrum_DarkSLSCorr_doublearray = [0.0] * 4096
+ScopeSpectrum_DarkSLSCorr = [0.0]
+AbsSpectrum_doublearray = [0.0] * 4096
+AbsSpectrum = [0.0]
 #################################

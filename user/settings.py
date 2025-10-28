@@ -46,7 +46,8 @@ LEDstatus = "OFF"
 count = 1
 
 MODE_LED = ""
-# MODE_LED = "TEST" ## use if no Arduino connected (test mode)
+MODE_LED = "TEST" ## use if no Arduino connected (test mode)
+LED_initialisation = ""
 
 Default_AutoSaveFolder = r"user/back-up"
 

@@ -33,7 +33,6 @@ class Plot(QtWidgets.QWidget):
             self.canvas.ax.set_ylabel("Counts")
         else:
             self.canvas.ax.set_ylabel("Counts (Dark- and SLS-Corrected)")
-        # self.canvas.ax.plot(globals.wavelength, globals.ScopeSpectrum_DarkSLSCorr)
         self.canvas.ax.plot(globals.wavelength, spectrum)
         ############
         # self.canvas.ax.set_ylim(-100,3000)

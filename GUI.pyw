@@ -79,7 +79,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.DarkMeasBtn.setEnabled(False)
         self.RefMeasBtn.setEnabled(False)
         self.AbsorbanceModeBtn.setEnabled(False)
-        self.StartMeasBtn.setEnabled(False)
+        self.StartMeasBtn.setEnabled(True) ## Start Measurement button is on
         self.StopMeasBtn.setEnabled(False)
         self.ResetSpectrometerBtn.setEnabled(False)        
         ###########################################
@@ -92,6 +92,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.ScopeModeBtn.setChecked(True)
         self.AbsorbanceModeBtn.setChecked(False)
         ###########################################
+        self.SLSCorrCheck.toggled.connect(self.handle_radio_selection)
         self.SingleRBtn.toggled.connect(self.handle_radio_selection)
         self.ContinuousRBtn.toggled.connect(self.handle_radio_selection)
         self.KineticsRBtn.toggled.connect(self.handle_radio_selection)
@@ -305,18 +306,18 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StatusLabel_Settings.setText("Settings saved")
         if self.measconfig.m_IntegrationTime != former_integration_time: ## If Integration Time is changed (not Nr. Averages): need to re-record Dark and Ref
             print(f"Integration Time changed from {former_integration_time} to {self.measconfig.m_IntegrationTime}\nDark and Ref need to be re-recorded")
-            self.reset_RefDark()
-            ##!!! UNLOAD DARK AND REF
+            self.reset_ButtonsRefDark()
+            self.reset_DarkRef_data() ## reset Dark and Ref to [0.0]
     ###########################################
 
     @pyqtSlot()
     def on_DarkMeasBtn_clicked(self):
         print("on_DarkMeasBtn_clicked")
         globals.MeasurementType = "Dark"
+        self.reset_Data_Dark() ## reset Dark data to [0.0]
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
         ###########################################
         if (self.DarkMeasBtn.isEnabled()):
-            print ("on_DarkMeasBtn_clicked === DarkMeasBtn enabled")
             globals.m_DateTime_start = QDateTime.currentDateTime()
             globals.m_SummatedTimeStamps = 0.0
             globals.m_Measurements = 0
@@ -329,7 +330,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
         ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
         globals.dataready = False
-        print(f"globals.dataready: {globals.dataready}")
+        # print(f"globals.dataready: {globals.dataready}")
         self.Shutter_Close()
         
         while (globals.dataready == False):
@@ -349,6 +350,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def on_RefMeasBtn_clicked(self):
         print("on_RefMeasBtn_clicked")
         globals.MeasurementType = "Ref"
+        if self.check_Dark(): ## check if Dark data exists
+            QMessageBox.critical(self, "DARK", "First record a dark spectrum")
+        self.reset_Data_Ref() ## reset Ref data to [0.0]
         self.StartMeasBtn.setEnabled(False) 
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
         ###########################################
@@ -388,9 +392,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
 
         ###!!! in case of Absorbance Mode: add an if-check for the Ref having been measured
-        ## if (self.AbsorbanceMode.isChecked()):
-            ## if Ref is None:
-                ## QMessageBox.warning(self, "Error", "Wrong input percentage")
+        if (self.AbsorbanceModeBtn.isChecked()):
+            if self.check_Ref():
+                QMessageBox.critical(self, "DARK", "First record a reference spectrum")
+        
+        ##!!! THROW WARNING:
+            ## if filename in auto-save folder already exists
+            ## give option to continue; then it will be saved with a number suffix
 
         ######################################################################
         ### QThread functionality ###
@@ -849,19 +857,51 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         None.
 
         '''
+        ##!!! SAVE ALL SCOPE/INT SPECTRA IN ONE FILE
+        
         if globals.AcquisitionMode in ("Kin", "IrrKin"):
             ##!!! CHANGE MEASUREMENT NR TO: 0001, 0002, ..., 0118, etc.
             filepath = f"{foldername}/{mode}_{globals.m_Measurements}.csv"
         else:
             filepath = f"{foldername}/{mode}.csv"
         
-        if self.ChkAutoSaveFolder.isChecked() or mode in ("Dark", "Ref"):
+        if self.ChkAutoSaveFolder.isChecked() or mode in ("Dark", "Ref"): ## always save Dark and Ref
             file = DataHandling.Logger(filepath, "spectra") ## initialise logger for spectrum savefile
             file.save_spectrum(globals.wavelength, spectrum, data_header)
-            self.statusBar.showMessage(f"{mode} Spectrum auto-saved as {file}")
+            self.statusBar.showMessage(f"{mode} Spectrum auto-saved as {file.filename}")
         else:
             print("Auto-Saving turned off")
 
+    def Define_Spectrum(self, spectraldata):
+        spectrum_doublearray = spectraldata
+        spectrum_array = spectrum_doublearray[:globals.pixels]
+        return spectrum_doublearray, spectrum_array
+
+    def Apply_Dark_Correction(self, scope_spectrum, dark_spectrum):
+        dark_corrected = [scope_spectrum[x] - dark_spectrum[x] for x in range(globals.pixels)]
+        return dark_corrected
+
+    def Apply_SLS_Correction(self, darkcorrected_spectrum):
+        '''
+        Stray Light Suppression (SLS)
+        Need the ctypes double-array spectrum as input for the function
+            AVS_SuppressStrayLight
+        Tested on spectrometer that has SLS feature
+        '''
+        ArrayType = ctypes.c_double * 4096 ## ctypes array
+        spectrum_doublearray = ArrayType(*darkcorrected_spectrum) ## convert list to ctypes array
+        
+        SLSfactor = globals.SLSfactor
+        ret_code, darkSLScorrected_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
+                                          SLSfactor,
+                                          spectrum_doublearray)
+        darkSLScorrected_spectrum = list(darkSLScorrected_doublearray) # convert to list
+        return darkSLScorrected_doublearray, darkSLScorrected_spectrum
+    
+    def Calculate_Absorbance(self, reference_doublearray, scope_doublearray):
+        absorbance_doublearray = [log10(reference_doublearray[x] / scope_doublearray[x]) if scope_doublearray[x]>0 and reference_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
+        absorbance = list(absorbance_doublearray)
+        return absorbance_doublearray, absorbance
 
     @pyqtSlot(int, int)
     def handle_newdata(self, ldev_handle, lerror):
@@ -884,88 +924,79 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         self.record_event("Measurement")
                         
                         timestamp = 0 ##!!! ADJUST to use for how long acquisition took
+                        
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
                         ##################
                         savefolder = globals.AutoSaveFolder
                         ##################
+                        if self.check_Dark():
+                            self.Corrections_to_Apply = "None"
+                        else:
+                            if self.SLSCorr == "OFF":
+                                self.Corrections_to_Apply = "Dark"
+                            elif self.SLSCorr == "ON":
+                                self.Corrections_to_Apply = "DarkSLS"
+                            else:
+                                print("Something wrong with Corrections_to_Apply code")
+                        print(f"self.Corrections_to_Apply: {self.Corrections_to_Apply}")
+                        
+                        ##################
                         if globals.MeasurementType == "Dark":
-                            globals.DarkSpectrum_doublearray = globals.spectraldata
-                            globals.DarkSpectrum = globals.DarkSpectrum_doublearray[:globals.pixels]
+                            (globals.DarkSpectrum_doublearray,
+                             globals.DarkSpectrum) = self.Define_Spectrum(globals.spectraldata)
                             self.auto_save(savefolder, "Dark", globals.DarkSpectrum, "Intensity")
                         elif globals.MeasurementType == "Ref":
-                            globals.RefSpectrum_doublearray = globals.spectraldata
-                            globals.RefSpectrum = globals.RefSpectrum_doublearray[:globals.pixels]
+                            #### No Corrections ####
+                            (globals.RefSpectrum_doublearray,
+                             globals.RefSpectrum) = self.Define_Spectrum(globals.spectraldata)
                             self.auto_save(savefolder, "Ref", globals.RefSpectrum, "Intensity")
                             
-                            #### Dark-Corrected ####
-                            globals.RefSpectrum_DarkCorr = [globals.RefSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
-                            self.auto_save(savefolder, "Ref_DarkCorr", globals.RefSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
-                            
-                            #####################################
-                            if self.SLSCorrCheck.isChecked():
-                                '''
-                                Stray Light Suppression (SLS)
-                                Need the ctypes double-array spectrum as input for the function
-                                    AVS_SuppressStrayLight
-                                Tested on spectrometer that has SLS feature
-                                '''
-                                ArrayType = ctypes.c_double * 4096 ## ctypes array
-                                globals.RefSpectrum_DarkCorr_doublearray = ArrayType(*globals.RefSpectrum_DarkCorr) ## convert list to ctypes array
-                                
-                                SLSfactor = 1
-                                ret_code, globals.RefSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
-                                                                  SLSfactor,
-                                                                  globals.RefSpectrum_DarkCorr_doublearray)
-                                globals.RefSpectrum_DarkSLSCorr = list(globals.RefSpectrum_DarkSLSCorr_doublearray) # convert to list
-                                self.auto_save(savefolder, "Ref_DarkSLSCorr", globals.RefSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
-                            
-                            ##!!! SAVE ALL REFERENCE SPECTRA IN ONE FILE
+                            #### Dark Correction ####
+                            if self.Corrections_to_Apply in ("Dark", "DarkSLS"):
+                                globals.RefSpectrum_DarkCorr = self.Apply_Dark_Correction(globals.RefSpectrum_doublearray, 
+                                                                                          globals.DarkSpectrum_doublearray)
+                                self.auto_save(savefolder, "Ref_DarkCorr", globals.RefSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
 
+                                #### SLS Correction ####
+                                if self.Corrections_to_Apply == "DarkSLS":
+                                    (globals.RefSpectrum_DarkSLSCorr_doublearray,
+                                     globals.RefSpectrum_DarkSLSCorr) = self.Apply_SLS_Correction(globals.RefSpectrum_DarkCorr)
+                                    self.auto_save(savefolder, "Ref_DarkSLSCorr", globals.RefSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
                         elif globals.MeasurementType == "Measurement":
-                            globals.ScopeSpectrum_doublearray = globals.spectraldata
-                            globals.ScopeSpectrum = globals.ScopeSpectrum_doublearray[:globals.pixels]
+                            #### No Corrections ####
+                            (globals.ScopeSpectrum_doublearray,
+                             globals.ScopeSpectrum) = self.Define_Spectrum(globals.spectraldata)
+                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int", globals.ScopeSpectrum, "Intensity")
                             
                             #### Dark Correction ####
-                            globals.ScopeSpectrum_DarkCorr = [globals.ScopeSpectrum_doublearray[x] - globals.DarkSpectrum_doublearray[x] for x in range(globals.pixels)]
-
-                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int", globals.ScopeSpectrum, "Intensity")
-                            self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr", globals.ScopeSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
-                            
-                            #####################################
-                            ############### SLS #################
-                            #####################################
-                            if self.SLSCorrCheck.isChecked():
-                                '''
-                                Stray Light Suppression (SLS)
-                                Need the ctypes double-array spectrum as input for the function
-                                    AVS_SuppressStrayLight
-                                Tested on spectrometer that has SLS feature
-                                '''
-                                ArrayType = ctypes.c_double * 4096 ## ctypes array
-                                globals.ScopeSpectrum_DarkCorr_doublearray = ArrayType(*globals.ScopeSpectrum_DarkCorr) ## convert list to ctypes array
-    
-                                ##!!! MAKE INTO A FUNCTION
-                                SLSfactor = 1
-                                ret_code, globals.ScopeSpectrum_DarkSLSCorr_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
-                                                                  SLSfactor,
-                                                                  globals.ScopeSpectrum_DarkCorr_doublearray)
-                                globals.ScopeSpectrum_DarkSLSCorr = list(globals.ScopeSpectrum_DarkSLSCorr_doublearray) # convert to list
+                            if self.Corrections_to_Apply in ("Dark", "DarkSLS"):
+                                globals.ScopeSpectrum_DarkCorr = self.Apply_Dark_Correction(globals.ScopeSpectrum_doublearray, 
+                                                                                          globals.DarkSpectrum_doublearray)
+                                self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr", globals.ScopeSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
                                 
-                                self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr", globals.ScopeSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
-                        
-                            #####################################
-                            ########## ABSORBANCE MODE ##########
-                            #####################################
-                            if (self.AbsorbanceModeBtn.isChecked()): ## Absorbance mode
-                                if self.SLSCorrCheck.isChecked():
-                                    globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkSLSCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
-                                    globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
-                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs", globals.AbsSpectrum, "Absorbance")
-                                else:
-                                    globals.AbsSpectrum_doublearray = [log10(globals.RefSpectrum_DarkCorr_doublearray[x] / globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]) if globals.ScopeSpectrum_DarkSLSCorr_doublearray[x]>0 and globals.RefSpectrum_DarkSLSCorr_doublearray[x]>0 else 0.0 for x in range(globals.pixels)]
-                                    globals.AbsSpectrum = list(globals.AbsSpectrum_doublearray)
-                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_noSLS", globals.AbsSpectrum, "Absorbance (No SLS Correction)")
+                                #### SLS Correction ####
+                                if self.Corrections_to_Apply == "DarkSLS":
+                                    (globals.ScopeSpectrum_DarkSLSCorr_doublearray,
+                                     globals.ScopeSpectrum_DarkSLSCorr) = self.Apply_SLS_Correction(globals.ScopeSpectrum_DarkCorr)
+                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr", globals.ScopeSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
 
+                            #### ABSORBANCE MODE ####
+                            if (self.AbsorbanceModeBtn.isChecked()): ## Absorbance mode
+                                if self.Corrections_to_Apply == "DarkSLS":
+                                    (globals.AbsSpectrum_doublearray,
+                                     globals.AbsSpectrum) = self.Calculate_Absorbance(globals.RefSpectrum_DarkSLSCorr_doublearray, 
+                                                                                      globals.ScopeSpectrum_DarkSLSCorr_doublearray)
+                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs", globals.AbsSpectrum, "Absorbance")
+                                elif self.Corrections_to_Apply == "Dark":
+                                    (globals.AbsSpectrum_doublearray,
+                                     globals.AbsSpectrum) = self.Calculate_Absorbance(globals.RefSpectrum_DarkCorr_doublearray, 
+                                                                                      globals.ScopeSpectrum_DarkCorr_doublearray)
+                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_noSLS", globals.AbsSpectrum, "Absorbance (No SLS Correction)")
+                                elif self.Corrections_to_Apply == "None": ## no corrections
+                                    (globals.AbsSpectrum_doublearray,
+                                     globals.AbsSpectrum) = self.Calculate_Absorbance(globals.RefSpectrum_doublearray, 
+                                                                                      globals.ScopeSpectrum_doublearray)
+                                    self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_noDarkSLScorr", globals.AbsSpectrum, "Absorbance (No Dark and SLS Corrections)")
                             #####################################
                             ########## SAVE IN ONE FILE ##########
                             #####################################
@@ -974,12 +1005,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                     self.recent_spectra_Abs.build_df_spectra(globals.AbsSpectrum, globals.m_Measurements)
                                 elif (self.ScopeModeBtn.isChecked()):
                                     self.recent_spectra_Int.build_df_spectra(globals.ScopeSpectrum_DarkSLSCorr, globals.m_Measurements)
-
                         #####################################
                         else:
                             self.statusBar.showMessage("Incorrect MeasurementType. {0:d})".format(lerror))
                         ##################
-                        ######################################################
+                        #######################################################
+                        ################ MEASUREMENT STATISTICS ###############
+                        #######################################################
                         globals.saturated = ava.AVS_GetSaturatedPixels(globals.dev_handle)
                         SpectrumIsSatured = False
                         j = 0
@@ -1001,7 +1033,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         else:
                             self.label_LastScan.setText("")
                             self.label_TimePerScan.setText("")
-                        #######################################################
 
                         l_MilliSeconds = globals.m_DateTime_start.msecsTo(QDateTime.currentDateTime()) ## difference in milliseconds between current and start time
                         l_Seconds = l_MilliSeconds/1000
@@ -1015,6 +1046,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         print(f"new data was not handled completely\n   Type of Exception: {type(e)}\n   Message: {e}")
                     except:
                         print("new data was not handled completely (unknown error)")
+                        # pass
                     return
                     ######################################################
         else:
@@ -1134,7 +1166,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.stoppixel = globals.DeviceData.m_StandAlone_m_Meas_m_StopPixel
         globals.wavelength_doublearray = ava.AVS_GetLambda(globals.dev_handle) ## wavelength data here
         globals.wavelength = globals.wavelength_doublearray[:globals.pixels]
-        self.reset_RefDark()
+        self.reset_ButtonsRefDark()
         return l_Res, ret
 
     def DefaultSettings(self):
@@ -1174,6 +1206,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         '''
         self.DarkCorrPercEdt.setText(f"{self.measconfig.m_CorDynDark_m_ForgetPercentage:0d}")
         self.SLSCorrCheck.setChecked(True) ## Stray Light Suppression/Correction
+        globals.SLSfactor = 1
 
         #######################################################################        
         self.measconfig.m_SaturationDetection = 1
@@ -1189,8 +1222,9 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
         globals.AutoSaveFolder = Settings.Default_AutoSaveFolder
         self.update_label_AutoSaveFolder()
+        ##!!! SET BACK-UP DEFAULT: add datetime to folder name
         self.PrintSettings()
-        ##!!! SET DEFAULT
+        self.StartMeasBtn.setEnabled(True) ## turn on Start Measurement button
     
     def DisconnectGui(self):
         self.DetectorEdt.clear()
@@ -1303,7 +1337,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.MeasurementMode = "Int"
         if self.AbsorbanceModeBtn.isChecked():
             globals.MeasurementMode = "Abs"
-            
+        
+        if self.SLSCorrCheck.isChecked():
+            self.SLSCorr = "ON"
+        else:
+            self.SLSCorr = "OFF"
+        
         if (self.PlotTraceChk.isChecked() == False):
             self.TraceWavelengthChk_1.setEnabled(False)
             self.TraceWavelengthChk_2.setEnabled(False)
@@ -1331,7 +1370,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if int(self.AvgEdt.text()) != self.measconfig.m_NrAverages:
             self.StatusLabel_Settings.setText("Settings NOT saved!")
     
-    def reset_RefDark(self):
+    def reset_ButtonsRefDark(self):
         self.StatusLabel_Dark.setText("") ## show empty
         self.StatusLabel_Ref.setText("") ## show empty
         self.StatusLabel_Ref.setEnabled(False)
@@ -1340,6 +1379,33 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.ScopeModeBtn.setChecked(True)
         self.AbsorbanceModeBtn.setEnabled(False)
         print(f"globals.MeasurementMode: {globals.MeasurementMode}")
+
+    def reset_Data_Dark(self):
+        globals.DarkSpectrum_doublearray = [0.0] * 4096
+        globals.DarkSpectrum = [0.0]
+        print(f"globals.DarkSpectrum: {globals.DarkSpectrum}")
+    
+    def reset_Data_Ref(self):
+        globals.RefSpectrum_doublearray = [0.0] * 4096
+        globals.RefSpectrum  = [0.0]
+        globals.RefSpectrum_DarkCorr_doublearray = [0.0] * 4096
+        globals.RefSpectrum_DarkCorr  = [0.0]
+        globals.RefSpectrum_DarkSLSCorr_doublearray = [0.0] * 4096
+        globals.RefSpectrum_DarkSLSCorr = [0.0]
+        
+        print(f"globals.RefSpectrum_DarkSLSCorr: {globals.RefSpectrum_DarkSLSCorr}")
+
+    def reset_DarkRef_data(self):
+        self.reset_Data_Dark()
+        self.reset_Data_Ref()
+    
+    def check_Dark(self):
+        """ Check if true """
+        return (globals.DarkSpectrum_doublearray == [0.0] * 4096 or globals.DarkSpectrum == [0.0])
+    
+    def check_Ref(self):
+        """ check if true """
+        return (globals.RefSpectrum_doublearray == [0.0] * 4096 or globals.RefSpectrum == [0.0])
     
     def PrintSettings(self):
         print(f"self.measconfig.m_IntegrationTime: {self.measconfig.m_IntegrationTime}")
