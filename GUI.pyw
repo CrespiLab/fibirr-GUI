@@ -341,9 +341,68 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             time.sleep(self.delay_acq)
 
         print("Dark Measurement done")
-        self.StatusLabel_Dark.setText(u"\u2713") ## show checkmark
-        self.DarkMeasBtn.setEnabled(True)
-        self.RefMeasBtn.setEnabled(True)
+        self.update_after_Dark()
+        self.update_label_CurrentDark()
+        return
+
+    @pyqtSlot()
+    def on_LoadDarkBtn_clicked(self):
+        print("LoadDarkBtn clicked")
+        
+        options = QFileDialog.Options()
+        filename, _ = QFileDialog.getOpenFileName(self,
+                                                   "Load Dark File", "",
+                                                   "CSV, DAT Files (*.csv *dat);;DAT Files (*.dat);;All Files (*)", 
+                                                   options=options)
+        if filename:
+            loader_dark = DataHandling.Logger(filename, "load") ## initialise logger for load spectrum
+            
+            dataframe = loader_dark.load_df_spectra()
+            loaded_dark = loader_dark.loaded_df_to_list(dataframe)
+            globals.DarkSpectrum = loaded_dark
+            globals.DarkSpectrum_doublearray = DataHandling.doublearray_from_list(globals.DarkSpectrum)
+            # print(f"DarkSpectrum: {globals.DarkSpectrum}")
+            globals.FileName_CurrentDark = filename
+            self.update_label_CurrentDark()
+            self.update_after_Dark()
+        else:
+            QMessageBox.warning(self, "Error", "No file selected")
+            return
+        return
+
+    @pyqtSlot()
+    def on_LoadRefBtn_clicked(self):
+        print("LoadRefBtn clicked")
+        
+        options = QFileDialog.Options()
+        filename, _ = QFileDialog.getOpenFileName(self,
+                                                   "Load (NON-corrected) Reference File", "",
+                                                   "CSV, DAT Files (*.csv *dat);;DAT Files (*.dat);;All Files (*)", 
+                                                   options=options)
+        ##!!! ADD OPTIONS FOR REFERENCE FILE: non-corrected, dark-corrected, dark- and SLS-corrected
+        
+        if filename:
+            loader_ref = DataHandling.Logger(filename, "load") ## initialise logger for load spectrum
+            
+            dataframe = loader_ref.load_df_spectra()
+            loaded_ref = loader_ref.loaded_df_to_list(dataframe)
+            globals.RefSpectrum = loaded_ref
+            globals.RefSpectrum_doublearray = DataHandling.doublearray_from_list(globals.RefSpectrum)
+            
+            #### Dark Correction ####
+            if globals.Corrections_to_Apply in ("Dark", "DarkSLS"):
+                globals.RefSpectrum_DarkCorr = self.Apply_Dark_Correction(globals.RefSpectrum_doublearray, 
+                                                                          globals.DarkSpectrum_doublearray)
+                #### SLS Correction ####
+                if globals.Corrections_to_Apply == "DarkSLS":
+                    (globals.RefSpectrum_DarkSLSCorr_doublearray,
+                     globals.RefSpectrum_DarkSLSCorr) = self.Apply_SLS_Correction(globals.RefSpectrum_DarkCorr)
+            # print(f"RefSpectrum: {globals.RefSpectrum}")
+            globals.FileName_CurrentRef = filename
+            self.update_label_CurrentRef()
+        else:
+            QMessageBox.warning(self, "Error", "No file selected")
+            return
         return
 
     @pyqtSlot()
@@ -357,7 +416,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
         ###########################################
         if (self.RefMeasBtn.isEnabled()):
-            print ("on_RefMeasBtn_clicked === RefMeasBtn enabled")
             globals.m_DateTime_start = QDateTime.currentDateTime()
             globals.m_SummatedTimeStamps = 0.0
             globals.m_Measurements = 0
@@ -368,11 +426,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_NrFailures.setText("{0:d}".format(0))
         self.RefMeasBtn.setEnabled(False)
         self.One_Measurement()
-        self.StatusLabel_Ref.setEnabled(True)
         self.StatusLabel_Ref.setText(u"\u2713") ## show checkmark
         self.RefMeasBtn.setEnabled(True)
         self.AbsorbanceModeBtn.setEnabled(True) ## enable Absorbance Mode
         self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
+        self.update_label_CurrentRef()
         return ret
 
     @pyqtSlot()
@@ -391,7 +449,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_NrFailures.setText("{0:d}".format(0))
         ret = ava.AVS_PrepareMeasure(globals.dev_handle, self.measconfig)
 
-        ###!!! in case of Absorbance Mode: add an if-check for the Ref having been measured
         if (self.AbsorbanceModeBtn.isChecked()):
             if self.check_Ref():
                 QMessageBox.critical(self, "DARK", "First record a reference spectrum")
@@ -640,27 +697,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.cancelled = True
         return ret
 
-    @pyqtSlot()
-    def on_AutoSaveFolderBtn_clicked(self):
-        folder = QFileDialog.getExistingDirectory(self,
-                                                  "Choose folder for auto-saving", 
-                                                  "",
-                                                  QFileDialog.ShowDirsOnly)
-        if folder:
-            globals.AutoSaveFolder = folder
-        else:
-            print("No auto-save folder selected.")
-            globals.AutoSavefolder = Settings.Default_AutoSaveFolder
-            ##!!! PRINT MESSAGE: NO AUTO-SAVE FOLDER SELECTED: REVERTED TO BACK-UP
-                ## CREATE BACK-UP FOLDER WITH NAME: DATE AND TIME
-        
-        self.update_label_AutoSaveFolder()
-        return
-
-    def update_label_AutoSaveFolder(self):
-        self.Label_AutoSaveFolder.setText(globals.AutoSaveFolder)
-        print(f"Auto-Save Folder: {globals.AutoSaveFolder}")
-
     ###########################################################################
     ###########################################################################
 
@@ -840,6 +876,23 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             pass
 
     @pyqtSlot()
+    def on_AutoSaveFolderBtn_clicked(self):
+        folder = QFileDialog.getExistingDirectory(self,
+                                                  "Choose folder for auto-saving", 
+                                                  "",
+                                                  QFileDialog.ShowDirsOnly)
+        if folder:
+            globals.AutoSaveFolder = folder
+        else:
+            print("No auto-save folder selected.")
+            globals.AutoSavefolder = Settings.Default_AutoSaveFolder
+            ##!!! PRINT MESSAGE: NO AUTO-SAVE FOLDER SELECTED: REVERTED TO BACK-UP
+                ## CREATE BACK-UP FOLDER WITH NAME: DATE AND TIME
+        
+        self.update_label_AutoSaveFolder()
+        return
+
+    @pyqtSlot()
     def auto_save(self, foldername, mode, spectrum, data_header):
         '''
         Saves spectrum as .csv file
@@ -865,10 +918,18 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         else:
             filepath = f"{foldername}/{mode}.csv"
         
-        if self.ChkAutoSaveFolder.isChecked() or mode in ("Dark", "Ref"): ## always save Dark and Ref
+        print(f"mode: {mode}")
+        
+        if self.ChkAutoSaveFolder.isChecked() or mode in ("Dark", "Ref", "Ref_DarkCorr", "Ref_DarkSLSCorr"): ## always save Dark and Ref
             file = DataHandling.Logger(filepath, "spectra") ## initialise logger for spectrum savefile
             file.save_spectrum(globals.wavelength, spectrum, data_header)
             self.statusBar.showMessage(f"{mode} Spectrum auto-saved as {file.filename}")
+            if mode == "Dark":
+                globals.FileName_CurrentDark = file.filename
+                # self.update_label_CurrentDark()
+            elif mode in ("Ref", "Ref_DarkCorr", "Ref_DarkSLSCorr"):
+                globals.FileName_CurrentRef = file.filename
+                # self.update_label_CurrentRef()
         else:
             print("Auto-Saving turned off")
 
@@ -888,8 +949,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             AVS_SuppressStrayLight
         Tested on spectrometer that has SLS feature
         '''
-        ArrayType = ctypes.c_double * 4096 ## ctypes array
-        spectrum_doublearray = ArrayType(*darkcorrected_spectrum) ## convert list to ctypes array
+        spectrum_doublearray = DataHandling.doublearray_from_list(darkcorrected_spectrum)
         
         SLSfactor = globals.SLSfactor
         ret_code, darkSLScorrected_doublearray =  ava.AVS_SuppressStrayLight(globals.dev_handle, 
@@ -930,15 +990,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         savefolder = globals.AutoSaveFolder
                         ##################
                         if self.check_Dark():
-                            self.Corrections_to_Apply = "None"
+                            globals.Corrections_to_Apply = "None"
                         else:
-                            if self.SLSCorr == "OFF":
-                                self.Corrections_to_Apply = "Dark"
-                            elif self.SLSCorr == "ON":
-                                self.Corrections_to_Apply = "DarkSLS"
+                            if self.check_SLSCorr():
+                                globals.Corrections_to_Apply = "DarkSLS"
                             else:
-                                print("Something wrong with Corrections_to_Apply code")
-                        print(f"self.Corrections_to_Apply: {self.Corrections_to_Apply}")
+                                globals.Corrections_to_Apply = "Dark"
+                        print(f"globals.Corrections_to_Apply: {globals.Corrections_to_Apply}")
                         
                         ##################
                         if globals.MeasurementType == "Dark":
@@ -952,13 +1010,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             self.auto_save(savefolder, "Ref", globals.RefSpectrum, "Intensity")
                             
                             #### Dark Correction ####
-                            if self.Corrections_to_Apply in ("Dark", "DarkSLS"):
+                            if globals.Corrections_to_Apply in ("Dark", "DarkSLS"):
                                 globals.RefSpectrum_DarkCorr = self.Apply_Dark_Correction(globals.RefSpectrum_doublearray, 
                                                                                           globals.DarkSpectrum_doublearray)
                                 self.auto_save(savefolder, "Ref_DarkCorr", globals.RefSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
 
                                 #### SLS Correction ####
-                                if self.Corrections_to_Apply == "DarkSLS":
+                                if globals.Corrections_to_Apply == "DarkSLS":
                                     (globals.RefSpectrum_DarkSLSCorr_doublearray,
                                      globals.RefSpectrum_DarkSLSCorr) = self.Apply_SLS_Correction(globals.RefSpectrum_DarkCorr)
                                     self.auto_save(savefolder, "Ref_DarkSLSCorr", globals.RefSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
@@ -969,30 +1027,30 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                             self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int", globals.ScopeSpectrum, "Intensity")
                             
                             #### Dark Correction ####
-                            if self.Corrections_to_Apply in ("Dark", "DarkSLS"):
+                            if globals.Corrections_to_Apply in ("Dark", "DarkSLS"):
                                 globals.ScopeSpectrum_DarkCorr = self.Apply_Dark_Correction(globals.ScopeSpectrum_doublearray, 
                                                                                           globals.DarkSpectrum_doublearray)
                                 self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkCorr", globals.ScopeSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
                                 
                                 #### SLS Correction ####
-                                if self.Corrections_to_Apply == "DarkSLS":
+                                if globals.Corrections_to_Apply == "DarkSLS":
                                     (globals.ScopeSpectrum_DarkSLSCorr_doublearray,
                                      globals.ScopeSpectrum_DarkSLSCorr) = self.Apply_SLS_Correction(globals.ScopeSpectrum_DarkCorr)
                                     self.auto_save(savefolder, f"{globals.AcquisitionMode}_Int_DarkSLSCorr", globals.ScopeSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
 
                             #### ABSORBANCE MODE ####
                             if (self.AbsorbanceModeBtn.isChecked()): ## Absorbance mode
-                                if self.Corrections_to_Apply == "DarkSLS":
+                                if globals.Corrections_to_Apply == "DarkSLS":
                                     (globals.AbsSpectrum_doublearray,
                                      globals.AbsSpectrum) = self.Calculate_Absorbance(globals.RefSpectrum_DarkSLSCorr_doublearray, 
                                                                                       globals.ScopeSpectrum_DarkSLSCorr_doublearray)
                                     self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs", globals.AbsSpectrum, "Absorbance")
-                                elif self.Corrections_to_Apply == "Dark":
+                                elif globals.Corrections_to_Apply == "Dark":
                                     (globals.AbsSpectrum_doublearray,
                                      globals.AbsSpectrum) = self.Calculate_Absorbance(globals.RefSpectrum_DarkCorr_doublearray, 
                                                                                       globals.ScopeSpectrum_DarkCorr_doublearray)
                                     self.auto_save(savefolder, f"{globals.AcquisitionMode}_Abs_noSLS", globals.AbsSpectrum, "Absorbance (No SLS Correction)")
-                                elif self.Corrections_to_Apply == "None": ## no corrections
+                                elif globals.Corrections_to_Apply == "None": ## no corrections
                                     (globals.AbsSpectrum_doublearray,
                                      globals.AbsSpectrum) = self.Calculate_Absorbance(globals.RefSpectrum_doublearray, 
                                                                                       globals.ScopeSpectrum_doublearray)
@@ -1375,15 +1433,23 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StatusLabel_Ref.setText("") ## show empty
         self.StatusLabel_Ref.setEnabled(False)
         self.RefMeasBtn.setEnabled(False)
+        self.LoadRefBtn.setEnabled(False)
+        self.text_CurrentRef.setEnabled(False)
+        self.Label_CurrentRef.setEnabled(False)
+        self.text_CurrentCorrections.setEnabled(False)
+        self.Label_CurrentCorrections.setEnabled(False)
+        
+        
         self.DarkMeasBtn.setEnabled(True)
         self.ScopeModeBtn.setChecked(True)
         self.AbsorbanceModeBtn.setEnabled(False)
-        print(f"globals.MeasurementMode: {globals.MeasurementMode}")
+        # print(f"globals.MeasurementMode: {globals.MeasurementMode}")
 
     def reset_Data_Dark(self):
         globals.DarkSpectrum_doublearray = [0.0] * 4096
         globals.DarkSpectrum = [0.0]
-        print(f"globals.DarkSpectrum: {globals.DarkSpectrum}")
+        globals.FileName_CurrentDark = ""
+        self.update_label_CurrentDark()
     
     def reset_Data_Ref(self):
         globals.RefSpectrum_doublearray = [0.0] * 4096
@@ -1392,8 +1458,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         globals.RefSpectrum_DarkCorr  = [0.0]
         globals.RefSpectrum_DarkSLSCorr_doublearray = [0.0] * 4096
         globals.RefSpectrum_DarkSLSCorr = [0.0]
-        
-        print(f"globals.RefSpectrum_DarkSLSCorr: {globals.RefSpectrum_DarkSLSCorr}")
+        globals.FileName_CurrentRef = ""
+        self.update_label_CurrentRef()
 
     def reset_DarkRef_data(self):
         self.reset_Data_Dark()
@@ -1406,6 +1472,41 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     def check_Ref(self):
         """ check if true """
         return (globals.RefSpectrum_doublearray == [0.0] * 4096 or globals.RefSpectrum == [0.0])
+    
+    def check_SLSCorr(self):
+        """ check if true """
+        return (self.SLSCorr == "ON")
+    
+    def update_label_AutoSaveFolder(self):
+        self.Label_AutoSaveFolder.setText(globals.AutoSaveFolder)
+        print(f"Auto-Save Folder: {globals.AutoSaveFolder}")
+
+    def update_label_CurrentDark(self):
+        self.Label_CurrentDark.setText(globals.FileName_CurrentDark)
+        print(f"Current Dark: {globals.FileName_CurrentDark}")
+
+    def update_label_CurrentRef(self):
+        self.Label_CurrentRef.setText(globals.FileName_CurrentRef)
+        print(f"Current Ref: {globals.FileName_CurrentRef}\n")
+        
+        if globals.FileName_CurrentRef == "":
+            corrections = ""
+        else:
+            corrections = globals.Corrections_to_Apply
+        self.Label_CurrentCorrections.setText(corrections)
+    
+    def update_after_Dark(self):
+        self.StatusLabel_Dark.setText(u"\u2713") ## show checkmark
+        self.StatusLabel_Ref.setText("") ## show empty
+        self.DarkMeasBtn.setEnabled(True)
+        self.RefMeasBtn.setEnabled(True)
+        self.StatusLabel_Ref.setEnabled(True)
+        self.LoadRefBtn.setEnabled(True)
+        self.text_CurrentRef.setEnabled(True)
+        self.Label_CurrentRef.setEnabled(True)
+        self.text_CurrentCorrections.setEnabled(True)
+        self.Label_CurrentCorrections.setEnabled(True)
+        self.reset_Data_Ref()
     
     def PrintSettings(self):
         print(f"self.measconfig.m_IntegrationTime: {self.measconfig.m_IntegrationTime}")

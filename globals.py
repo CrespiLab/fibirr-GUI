@@ -38,3 +38,8 @@ ScopeSpectrum_DarkSLSCorr = [0.0]
 AbsSpectrum_doublearray = [0.0] * 4096
 AbsSpectrum = [0.0]
 #################################
+AutoSaveFolder = ""
+FileName_CurrentDark = ""
+#################################
+Corrections_to_Apply = ""
+#################################

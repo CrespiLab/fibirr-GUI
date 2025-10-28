@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import ctypes
 import csv
 import numpy as np
 import pandas as pd
@@ -9,15 +10,18 @@ import globals
 
 class Logger:
     def __init__(self, filename, filetype):
-        self.filename = self._get_unique_filename(filename)
         try:
             if filetype == "log":
+                self.filename = self._get_unique_filename(filename)
                 with open(self.filename, "x", newline="") as f:
                     writer = csv.writer(f)
                     writer.writerow(["Cycle", "Time (YYYY-MM-DD_HH:MI:SS)", "Timestamp (s)", "Event"])
             elif filetype == "spectra":
+                self.filename = self._get_unique_filename(filename)
                 with open(self.filename, "x", newline="") as f:
                     writer = csv.writer(f)
+            elif filetype == "load":
+                self.filename = filename ## load file with known filename
         except:
             print("opening file was unsuccessful (unknown error)")
 
@@ -63,6 +67,10 @@ class Logger:
         '''
         dataframe = pd.read_csv(self.filename)
         return dataframe
+    
+    def loaded_df_to_list(self, dataframe):
+        values_column_1 = list(dataframe[dataframe.columns[1]])
+        return values_column_1
     
     def save_spectrum(self, wavelengths, spectrum, data_header):
         ''' Save spectrum as .csv '''
@@ -115,4 +123,10 @@ def ConvertTimestamps(filename_log, filename_log_autoQY):
     print(f"Saved log file for autoQY (with actual irradiation times) as: {filename_log_autoQY}")
 
     return
+
+def doublearray_from_list(spectrum_list):
+    """ Generate double-array from list """
+    ArrayType = ctypes.c_double * 4096 ## ctypes array
+    spectrum_doublearray = ArrayType(*spectrum_list) ## convert list to ctypes array
+    return spectrum_doublearray
 
