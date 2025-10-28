@@ -4,6 +4,7 @@
 ### Soon
 - [ ] Add option for exponential fitting of kinetic trace
 - [ ] Add plotting options: x-axis and y-axis limits; etc.
+- [ ] Generate configurations file with settings used per measurement
 - [ ] Compress files (at least Intensity spectra) into binary file
 - [ ] Add status box for messages, errors, warnings, etc.
 - [ ] Add logo (goat)
@@ -14,9 +15,9 @@
 - [ ] Add module for power measurement of LEDs
 
 ## In Progress :)
+- [ ] Add feature to load Reference (and Dark)
+
 - [ ] Add back-up save feature for recorded spectra
-
-
 - [ ] Add (auto-)save options
   - [x] Option: folder for auto-saving of spectra
   - [ ] Option: choose name of savefile
