@@ -5,8 +5,10 @@
 - [ ] Add option for exponential fitting of kinetic trace
 - [ ] Add plotting options: x-axis and y-axis limits; etc.
 - [ ] Generate configurations file with settings used per measurement
-- [ ] Compress files (at least Intensity spectra) into binary file
+- [ ] Combine saved files (at least Intensity spectra) into one file
+  - [ ] Compress into binary file
 - [ ] Add status box for messages, errors, warnings, etc.
+- [ ] Add pop-up message when measurement is done
 - [ ] Add logo (goat)
 
 ### Later
