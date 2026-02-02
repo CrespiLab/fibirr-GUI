@@ -926,6 +926,40 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         return
 
     @pyqtSlot()
+    def on_SaveSpectrumBtn_clicked(self):
+        ''' Save most recent spectrum (used for Single Mode) '''
+        if self.check_Scope():
+            QMessageBox.critical(self, "Single Int", "First record a Single Scope spectrum")
+            return
+    
+        if (self.AbsorbanceModeBtn.isChecked()):
+            if self.check_Abs():
+                QMessageBox.critical(self, "Single Abs", "First record a Single Abs spectrum")
+                return
+        
+        filepath, _ = QFileDialog.getSaveFileName(self, "Save Single Spectrum", "", "CSV Files (*.csv)")
+        if filepath:
+            
+            self.single_save(filepath, "Int", globals.ScopeSpectrum, "Intensity")
+            self.single_save(filepath, "Int_DarkCorr", globals.ScopeSpectrum_DarkCorr, "Intensity (Dark-Corrected)")
+            self.single_save(filepath, "Int_DarkSLSCorr", globals.ScopeSpectrum_DarkSLSCorr, "Intensity (Dark- and SLS-Corrected)")
+            
+            if (self.AbsorbanceModeBtn.isChecked()): ## Absorbance mode
+                if globals.Corrections_to_Apply == "DarkSLS":
+                    self.single_save(filepath, "Abs", globals.AbsSpectrum, "Absorbance")
+                elif globals.Corrections_to_Apply == "Dark":
+                    self.single_save(filepath, "Abs_noSLS", globals.AbsSpectrum, "Absorbance (No SLS Correction)")
+                elif globals.Corrections_to_Apply == "None": ## no corrections
+                    self.single_save(filepath, "Abs_noDarkSLScorr", globals.AbsSpectrum, "Absorbance (No Dark and SLS Corrections)")
+                            #####################################
+
+    def single_save(self, filepath, mode, spectrum, data_header):
+        filepath_full = DataHandling.append_filepath(filepath, mode)
+        file = DataHandling.Logger(filepath_full, "spectra") ## initialise logger for spectrum savefile
+        file.save_spectrum(globals.wavelength, spectrum, data_header)
+        self.statusBar.showMessage(f"Single spectrum saved as {file.filename}")
+
+    @pyqtSlot()
     def auto_save(self, foldername, mode, spectrum, data_header):
         '''
         Saves spectrum as .csv file
@@ -1409,21 +1443,25 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_NrCyclesEdt.setEnabled(False)
             self.IntervalEdt.setEnabled(False)
             self.label_IntervalEdt.setEnabled(False)
+            self.ChkAutoSaveFolder.setChecked(False) ## auto-save off for Single Mode
         if self.ContinuousRBtn.isChecked():
             self.NrCyclesEdt.setEnabled(True)
             self.label_NrCyclesEdt.setEnabled(True)
             self.IntervalEdt.setEnabled(False)
             self.label_IntervalEdt.setEnabled(False)
+            self.ChkAutoSaveFolder.setChecked(True) ## auto-save on
         if self.KineticsRBtn.isChecked():
             self.NrCyclesEdt.setEnabled(True)
             self.label_NrCyclesEdt.setEnabled(True)
             self.IntervalEdt.setEnabled(True)
             self.label_IntervalEdt.setEnabled(True)
+            self.ChkAutoSaveFolder.setChecked(True) ## auto-save on
         if self.IrrKinRBtn.isChecked():
             self.NrCyclesEdt.setEnabled(True)
             self.label_NrCyclesEdt.setEnabled(True)
             self.IntervalEdt.setEnabled(True)
             self.label_IntervalEdt.setEnabled(True)
+            self.ChkAutoSaveFolder.setChecked(True) ## auto-save on
         
         if self.ScopeModeBtn.isChecked():
             globals.MeasurementMode = "Int"
@@ -1500,12 +1538,20 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.reset_Data_Ref()
     
     def check_Dark(self):
-        """ Check if true """
+        """ Returns true if Dark is zero """
         return (globals.DarkSpectrum_doublearray == [0.0] * 4096 or globals.DarkSpectrum == [0.0])
     
     def check_Ref(self):
-        """ check if true """
+        """ Returns true if Reference is zero """
         return (globals.RefSpectrum_doublearray == [0.0] * 4096 or globals.RefSpectrum == [0.0])
+    
+    def check_Scope(self):
+        """ Returns true if Scope is zero """
+        return (globals.ScopeSpectrum_doublearray == [0.0] * 4096 or globals.ScopeSpectrum == [0.0])
+
+    def check_Abs(self):
+        """ Returns true if Abs is zero """
+        return (globals.AbsSpectrum_doublearray == [0.0] * 4096 or globals.AbsSpectrum == [0.0])
     
     def check_SLSCorr(self):
         """ check if true """

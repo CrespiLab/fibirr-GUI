@@ -84,6 +84,11 @@ class Logger:
         closest_index = (df[df.columns[0]] - wavelength_of_interest).abs().idxmin()
         closest_wavelength = df.loc[closest_index, df.columns[0]]
         return closest_index, closest_wavelength
+
+def append_filepath(filepath, appendage):
+    name, ext = os.path.splitext(filepath)
+    new_filepath = f"{name}_{appendage}{ext}"
+    return new_filepath
         
 def ConvertTimestamps(filename_log, filename_log_autoQY):
     ''' 
