@@ -16,7 +16,7 @@
 
 ## In Progress :)
 - [ ] Add back-up save feature for recorded spectra
-- [ ] Add (auto-)save options
+- [ ] Add auto-save options
   - [x] Option: folder for auto-saving of spectra
   - [ ] Option: choose name of savefile
 
@@ -29,6 +29,7 @@
 - [x] Make sure not to overwrite Single spectra
 - [x] Add feature to load Reference (and Dark)
 - [x] Add Acquisition Mode: Continuous
+- [x] Add option to save single spectrum 
 
 - [x] Add plot: live trace of Abs at chosen wavelength
 - [x] Add plot: latest recorded spectra during (irradiation) kinetics measurement (load from disk)
