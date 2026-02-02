@@ -118,6 +118,23 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.delay_acq = 0 ## time that acquisition takes
         ###########################################
 
+    def closeEvent(self, event):
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle('Warning')
+        box.setText('Are you sure you want to exit the program?')
+        box.setStandardButtons(QMessageBox.Yes|QMessageBox.No)
+        buttonY = box.button(QMessageBox.Yes)
+        buttonY.setText('Yes, exit')
+        buttonN = box.button(QMessageBox.No)
+        buttonN.setText('No, stay')
+        box.exec_()
+        
+        if box.clickedButton() == buttonY: ## yes
+            event.accept()
+        elif box.clickedButton() == buttonN: ## no
+            event.ignore()
+
     ###########################################
     ###########################################
     @pyqtSlot()
@@ -686,9 +703,25 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
     @pyqtSlot()
     def on_StopMeasBtn_clicked(self): 
         print("=== StopMeasBtn clicked ===")
-        self.cancel.emit() ## connected to cancel_meas(self)
-        time.sleep(1)
-        self.update_after_Meas(how="stopped")
+        
+        box = QMessageBox()
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle('Warning')
+        box.setText('Are you sure you want to stop the measurement?')
+        box.setStandardButtons(QMessageBox.Yes|QMessageBox.No)
+        buttonY = box.button(QMessageBox.Yes)
+        buttonY.setText('Yes, stop')
+        buttonN = box.button(QMessageBox.No)
+        buttonN.setText('No, continue')
+        box.exec_()
+        
+        if box.clickedButton() == buttonY: ## yes
+            self.cancel.emit() ## connected to cancel_meas(self)
+            time.sleep(1)
+            self.update_after_Meas(how="stopped")
+        elif box.clickedButton() == buttonN: ## no
+            pass
+    
         return
 
     @pyqtSlot()
