@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-Settings for LEDs
-All are Fiber-Coupled LEDs obtained from ThorLabs
+User settings for GUI
+All LEDs are Fiber-Coupled LEDs obtained from ThorLabs
 """
 
-###############################################################################
-###############################################################################
-###############################################################################
-
+################################### LEDs ######################################
 MaxCurrents = {
 	'280 nm': 500,
 	'310 nm': 600,
@@ -24,14 +21,16 @@ MaxCurrents = {
     'Max: 1200 mA': 1200
     }
 
-twelvebit_zero = 0
-twelvebit_max_default = 4095
-
 MaxCurrent_default = 1200 ## mA
 
+
 ###############################################################################
-###############################################################################
-###############################################################################
+
+##!!! MOVE TO LED_control.py 
+
+
+twelvebit_zero = 0 
+twelvebit_max_default = 4095 ##!!! MOVE TO LED_control.py
 
 twelvebit_max_thisLED = None
 twelvebit_adjusted_int = 0
@@ -45,11 +44,14 @@ LEDstatus = "OFF"
 
 count = 1
 
-MODE_LED = ""
-MODE_LED = "TEST" ## use if no Arduino connected (test mode)
 LED_initialisation = ""
+
+###############################################################################
+
+MODE_LED = ""
+# MODE_LED = "TEST" ## use if no Arduino connected (test mode)
 
 Default_AutoSaveFolder = r"user/back-up"
 
-# Default_ArduinoCOMport = 'COM4' ## fibirr laptop
-Default_ArduinoCOMport = 'COM5' ## other laptop
+Default_ArduinoCOMport = 'COM4' ## fibirr laptop
+# Default_ArduinoCOMport = 'COM5' ## other laptop

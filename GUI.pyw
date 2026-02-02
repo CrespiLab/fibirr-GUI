@@ -56,7 +56,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         QMainWindow.__init__(self, parent)
         self.setupUi(self)
         # self.setWindowIcon() ##!!! add icon here or in Designer
-        # self.showMaximized()
+        self.showMaximized()
         
         #self.PreScanChk.hide()
         #self.SetNirSensitivityRgrp.hide()
@@ -80,6 +80,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.RefMeasBtn.setEnabled(False)
         self.AbsorbanceModeBtn.setEnabled(False)
         self.StartMeasBtn.setEnabled(True) ## Start Measurement button is on
+        # self.label_MeasurementRunning.hide() ##!!! SHOW LABEL UPON STARTING MEASUREMENT
         self.StopMeasBtn.setEnabled(False)
         self.ResetSpectrometerBtn.setEnabled(False)        
         ###########################################
@@ -103,8 +104,6 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.TraceWavelengthChk_1.toggled.connect(self.handle_radio_selection)
         self.TraceWavelengthChk_2.toggled.connect(self.handle_radio_selection)
         self.handle_radio_selection()
-        
-        self.ContinuousRBtn.setEnabled(False) ##!!! TURN ON WHEN FUNCTION IS READY
         ###########################################
         self.SpectrometerList.clicked.connect(self.on_SpectrometerList_clicked)
         # self.timer.timeout.connect(self.update_plot) ## This signal is emitted when the timer times out.
@@ -328,22 +327,13 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_NrFailures.setText("{0:d}".format(0))
         self.DarkMeasBtn.setEnabled(False) 
 
-        ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
-        globals.dataready = False
-        # print(f"globals.dataready: {globals.dataready}")
         self.Shutter_Close()
+        self.One_Measurement()
         
-        while (globals.dataready == False):
-            globals.dataready = (ava.AVS_PollScan(globals.dev_handle) == True)
-            time.sleep(0.001)
-        if globals.dataready == True:
-            self.newdata.emit(globals.dev_handle, ret)
-            time.sleep(self.delay_acq)
-
         print("Dark Measurement done")
         self.update_after_Dark()
         self.update_label_CurrentDark()
-        return
+        return ret
 
     @pyqtSlot()
     def on_LoadDarkBtn_clicked(self):
@@ -365,6 +355,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             globals.FileName_CurrentDark = filename
             self.update_label_CurrentDark()
             self.update_after_Dark()
+            
+            if self.check_SLSCorr():
+                globals.Corrections_to_Apply = "DarkSLS"
+            else:
+                globals.Corrections_to_Apply = "Dark"
+            
         else:
             QMessageBox.warning(self, "Error", "No file selected")
             return
@@ -380,25 +376,42 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                                                    "CSV, DAT Files (*.csv *dat);;DAT Files (*.dat);;All Files (*)", 
                                                    options=options)
         ##!!! ADD OPTIONS FOR REFERENCE FILE: non-corrected, dark-corrected, dark- and SLS-corrected
+        ##!!! read from filename which corrections are applied?
+        
         
         if filename:
             loader_ref = DataHandling.Logger(filename, "load") ## initialise logger for load spectrum
-            
             dataframe = loader_ref.load_df_spectra()
             loaded_ref = loader_ref.loaded_df_to_list(dataframe)
-            globals.RefSpectrum = loaded_ref
-            globals.RefSpectrum_doublearray = DataHandling.doublearray_from_list(globals.RefSpectrum)
             
             #### Dark Correction ####
-            if globals.Corrections_to_Apply in ("Dark", "DarkSLS"):
-                globals.RefSpectrum_DarkCorr = self.Apply_Dark_Correction(globals.RefSpectrum_doublearray, 
-                                                                          globals.DarkSpectrum_doublearray)
+            if self.check_Dark(): ## check if Dark has been measured or loaded
+                globals.Corrections_to_Apply = "None"
+            
+            if globals.Corrections_to_Apply == "None":
+                globals.RefSpectrum = loaded_ref
+                globals.RefSpectrum_doublearray = DataHandling.doublearray_from_list(globals.RefSpectrum)
+
+            elif globals.Corrections_to_Apply == "Dark":
+                # globals.RefSpectrum_DarkCorr = self.Apply_Dark_Correction(globals.RefSpectrum_doublearray, 
+                #                                                           globals.DarkSpectrum_doublearray)
+                globals.RefSpectrum_DarkCorr = loaded_ref
+                globals.RefSpectrum_DarkCorr_doublearray = DataHandling.doublearray_from_list(globals.RefSpectrum_DarkCorr)
+                
                 #### SLS Correction ####
-                if globals.Corrections_to_Apply == "DarkSLS":
-                    (globals.RefSpectrum_DarkSLSCorr_doublearray,
-                     globals.RefSpectrum_DarkSLSCorr) = self.Apply_SLS_Correction(globals.RefSpectrum_DarkCorr)
+            elif globals.Corrections_to_Apply == "DarkSLS":
+                    # (globals.RefSpectrum_DarkSLSCorr_doublearray,
+                    #  globals.RefSpectrum_DarkSLSCorr) = self.Apply_SLS_Correction(globals.RefSpectrum_DarkCorr)
+                    
+                    globals.RefSpectrum_DarkSLSCorr = loaded_ref
+                    globals.RefSpectrum_DarkSLSCorr_doublearray = DataHandling.doublearray_from_list(globals.RefSpectrum_DarkSLSCorr)
+            
+            print(f"Corrections to apply: {globals.Corrections_to_Apply}")
+
+                    
             # print(f"RefSpectrum: {globals.RefSpectrum}")
             globals.FileName_CurrentRef = filename
+            self.update_after_Ref()
             self.update_label_CurrentRef()
         else:
             QMessageBox.warning(self, "Error", "No file selected")
@@ -425,11 +438,12 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.label_CurrentCycleNr.setText("{0:d}".format(0))
             self.label_NrFailures.setText("{0:d}".format(0))
         self.RefMeasBtn.setEnabled(False)
+        
+        self.Shutter_Open()
         self.One_Measurement()
-        self.StatusLabel_Ref.setText(u"\u2713") ## show checkmark
-        self.RefMeasBtn.setEnabled(True)
-        self.AbsorbanceModeBtn.setEnabled(True) ## enable Absorbance Mode
-        self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
+        self.Shutter_Close()
+        
+        self.update_after_Ref()
         self.update_label_CurrentRef()
         return ret
 
@@ -451,7 +465,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
         if (self.AbsorbanceModeBtn.isChecked()):
             if self.check_Ref():
-                QMessageBox.critical(self, "DARK", "First record a reference spectrum")
+                QMessageBox.critical(self, "REF", "First record a reference spectrum")
         
         ##!!! THROW WARNING:
             ## if filename in auto-save folder already exists
@@ -537,15 +551,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         
     @pyqtSlot()
     def One_Measurement(self):
-        ##!!! FIX apparent issue with delays: Continuous mode has higher intensity
-        
         print("=== One_Measurement ===")
         ###########################################        
         ret = ava.AVS_Measure(globals.dev_handle, 0, 1)
         globals.dataready = False
         print(f"globals.dataready: {globals.dataready}")
-        if globals.AcquisitionMode != "Continuous":
-            self.Shutter_Open()
         
         while (globals.dataready == False):
             globals.dataready = (ava.AVS_PollScan(globals.dev_handle) == True)
@@ -553,8 +563,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         if globals.dataready == True:
             self.newdata.emit(globals.dev_handle, ret)
             time.sleep(self.delay_acq)
-        if globals.AcquisitionMode != "Continuous":
-            self.Shutter_Close()
+
         print("One Measurement done")
         globals.m_Cycle += 1
         print(f"globals.m_Measurements: {globals.m_Measurements}")
@@ -572,8 +581,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.Shutter_Close()
             return
         else:
+            self.Shutter_Open()
             self.One_Measurement()
+            self.Shutter_Close()
         print("Single Measurement done")
+        
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
         return
@@ -585,6 +597,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.StopMeasBtn.setEnabled(True)
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         self.cancelled = False
+        
         self.Shutter_Open()
         
         print(f"===nummeas: {nummeas}")
@@ -598,6 +611,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
         print("Continuous Measurement done")
         self.Shutter_Close()
+        
         self.StartMeasBtn.setEnabled(True)
         self.StopMeasBtn.setEnabled(False)
         return
@@ -620,7 +634,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 self.Shutter_Close()
                 return
             else:
+                self.Shutter_Open()
                 self.One_Measurement()
+                self.Shutter_Close()
+                
                 if globals.m_Measurements != nummeas:
                     print(f"Waiting for {delay} s")
                     for t in range(delay):
@@ -660,7 +677,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 break
             else:
                 print(f"i: {i}")
+                self.Shutter_Open()
                 self.One_Measurement() ## do one measurement
+                self.Shutter_Close()
+                
                 if globals.m_Measurements != nummeas:
                     self.turnLED_ON() ## wait for a bit, and turn on LED
                     print(f"Waiting for {delay} s")
@@ -983,9 +1003,10 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         globals.m_Measurements += 1
                         self.record_event("Measurement")
                         
-                        timestamp = 0 ##!!! ADJUST to use for how long acquisition took
-                        
+                        timestamp_scan_before = QDateTime.currentDateTime() ##!!! ADJUST to use for how long acquisition took
                         timestamp, globals.spectraldata = ava.AVS_GetScopeData(globals.dev_handle) ## globals.spectraldata is array of doubles
+                        time_of_scan_ms = timestamp_scan_before.msecsTo(QDateTime.currentDateTime()) ## difference in milliseconds between current and start time
+                        print(f"handle_newdata acquisition took {time_of_scan_ms} ms")
                         ##################
                         savefolder = globals.AutoSaveFolder
                         ##################
@@ -1076,7 +1097,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         while j < (globals.stoppixel - globals.startpixel):
                             SpectrumIsSatured = SpectrumIsSatured or globals.saturated[j]
                             j += 1
-                            self.SaturatedChk.setChecked(SpectrumIsSatured)
+                            self.SaturatedChk.setChecked(SpectrumIsSatured) ##!!! doesn't seem to work!
                         
                         #######################################################
                         ##!!! SHOULD BE TIME PER ACQUISITION: TRY AND CHANGE IT
@@ -1507,6 +1528,22 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.text_CurrentCorrections.setEnabled(True)
         self.Label_CurrentCorrections.setEnabled(True)
         self.reset_Data_Ref()
+    
+    def update_after_Ref(self):
+        self.StatusLabel_Ref.setText(u"\u2713") ## show checkmark
+        self.RefMeasBtn.setEnabled(True)
+        self.AbsorbanceModeBtn.setEnabled(True) ## enable Absorbance Mode
+        self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
+        # self.DarkMeasBtn.setEnabled(True)
+        # self.RefMeasBtn.setEnabled(True)
+        # self.StatusLabel_Ref.setEnabled(True)
+        # self.LoadRefBtn.setEnabled(True)
+        # self.text_CurrentRef.setEnabled(True)
+        # self.Label_CurrentRef.setEnabled(True)
+        # self.text_CurrentCorrections.setEnabled(True)
+        # self.Label_CurrentCorrections.setEnabled(True)
+        # self.update_label_CurrentRef()
+        # self.reset_Data_Ref()
     
     def PrintSettings(self):
         print(f"self.measconfig.m_IntegrationTime: {self.measconfig.m_IntegrationTime}")
