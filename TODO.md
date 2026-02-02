@@ -7,8 +7,6 @@
 - [ ] Generate configurations file with settings used per measurement
 - [ ] Combine saved files (at least Intensity spectra) into one file
   - [ ] Compress into binary file
-- [ ] Add status box for messages, errors, warnings, etc.
-- [ ] Add pop-up message when measurement is done
 - [ ] Add logo (goat)
 
 ### Later
@@ -22,12 +20,15 @@
   - [x] Option: folder for auto-saving of spectra
   - [ ] Option: choose name of savefile
 
+- [ ] Add status box for messages, errors, warnings, etc.
+- [ ] Add pop-up message when measurement is done
 
 ## Completed ✓
 - [x] Add and fix Measurement Statistics: time passed; nr of measurements done; etc.
 - [x] Log timestamps during Kin and IrrKin measurements
 - [x] Make sure not to overwrite Single spectra
 - [x] Add feature to load Reference (and Dark)
+- [x] Add Acquisition Mode: Continuous
 
 - [x] Add plot: live trace of Abs at chosen wavelength
 - [x] Add plot: latest recorded spectra during (irradiation) kinetics measurement (load from disk)
