@@ -80,7 +80,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.RefMeasBtn.setEnabled(False)
         self.AbsorbanceModeBtn.setEnabled(False)
         self.StartMeasBtn.setEnabled(True) ## Start Measurement button is on
-        # self.label_MeasurementRunning.hide() ##!!! SHOW LABEL UPON STARTING MEASUREMENT
+        self.label_MeasurementRunning.hide() ## hide warning text that measurement is running
         self.StopMeasBtn.setEnabled(False)
         self.ResetSpectrometerBtn.setEnabled(False)        
         ###########################################
@@ -571,10 +571,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
 
     @pyqtSlot()
     def Single_Measurement(self):
-        print("=== Single_Measurement ===")
-        self.StartMeasBtn.setEnabled(False)
-        self.StopMeasBtn.setEnabled(True)
-        self.cancelled = False
+        self.update_before_Meas()
 
         if self.cancelled == True: ## break loop if Stop button was pressed
             print("Stopped Measurement")
@@ -584,23 +581,17 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.Shutter_Open()
             self.One_Measurement()
             self.Shutter_Close()
-        print("Single Measurement done")
-        
-        self.StartMeasBtn.setEnabled(True)
-        self.StopMeasBtn.setEnabled(False)
+
+        self.update_after_Meas()
         return
 
     @pyqtSlot()
     def Continuous_Measurement(self):
-        print("=== Continuous_Measurement ===")
-        self.StartMeasBtn.setEnabled(False)
-        self.StopMeasBtn.setEnabled(True)
+        self.update_before_Meas()
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
-        self.cancelled = False
-        
-        self.Shutter_Open()
-        
         print(f"===nummeas: {nummeas}")
+
+        self.Shutter_Open()
         for i in range(nummeas):
             if self.cancelled == True: ## break loop if Stop button was pressed
                 print("Stopped Measurement")
@@ -608,26 +599,20 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                 return
             else:
                 self.One_Measurement()
-
-        print("Continuous Measurement done")
         self.Shutter_Close()
         
-        self.StartMeasBtn.setEnabled(True)
-        self.StopMeasBtn.setEnabled(False)
+        self.update_after_Meas()
         return
 
 
     @pyqtSlot()
     def Kinetics_Measurement(self):
-        print("=== Kinetics_Measurement ===")
-        self.StartMeasBtn.setEnabled(False)
-        self.StopMeasBtn.setEnabled(True)
+        self.update_before_Meas()
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         print(f"globals.delays_aroundShutter: {globals.delays_aroundShutter}")
         delay = int(globals.l_interval - globals.delays_aroundShutter)
-        self.cancelled = False
-        
         print(f"nummeas: {nummeas}")
+
         for i in range(nummeas):
             if self.cancelled == True: ## break loop if Stop button was pressed
                 print("Stopped Kinetic Measurement")
@@ -646,9 +631,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
                         if self.cancelled == True:
                             break
                     print(f"Delay {delay} s done")
-        print(f"Kinetic measurement done ({nummeas} measurements)")
-        self.StartMeasBtn.setEnabled(True)
-        self.StopMeasBtn.setEnabled(False)
+
+        self.update_after_Meas()
         return
 
     @pyqtSlot()
@@ -658,13 +642,11 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         the total sum of the delays due to the shutter and LED functionalities,
         such that the measurement of spectra is separated by approximately the user-defined interval.
         '''
-        print("=== IrradiationKinetics_Measurement ===")
-        self.StartMeasBtn.setEnabled(False)
-        self.StopMeasBtn.setEnabled(True)
+        self.update_before_Meas()
+
         nummeas = globals.l_NrOfCycles + 1 ## nr of measurements (1 more than nr of cycles)
         delay_float = globals.l_interval - globals.delays_Shutter_plus_LED
         delay = int(delay_float) ## user-defined interval subtracted by total sum of delays
-        self.cancelled = False
 
         print(f"delay_float: {delay_float}")
         print(f"===nummeas: {nummeas}\n===LED {self.selected_LED}, {self.current} mA ({self.percentage} %)")
@@ -698,8 +680,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             self.log_autoQY = self.create_logger("log_for_autoQY")
             DataHandling.ConvertTimestamps(self.logger.filename, self.log_autoQY.filename) ## generate log file meant for autoQY: timestamps of actual irradiation times
         
-        self.StartMeasBtn.setEnabled(True)
-        self.StopMeasBtn.setEnabled(False)
+        self.update_after_Meas()
         return
 
     @pyqtSlot()
@@ -707,8 +688,7 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         print("=== StopMeasBtn clicked ===")
         self.cancel.emit() ## connected to cancel_meas(self)
         time.sleep(1)
-        self.StartMeasBtn.setEnabled(True)
-        self.StopMeasBtn.setEnabled(False)
+        self.update_after_Meas(how="stopped")
         return
 
     @pyqtSlot()
@@ -857,8 +837,8 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
             if self.TraceWavelengthChk_1.isChecked() or self.TraceWavelengthChk_2.isChecked():
                 if self.TraceWavelengthChk_1.isChecked():
                     globals.TraceWavelength_1 = int(self.TraceWavelength_1.text())
-                if self.TraceWavelengthChk_2.isChecked():
-                    globals.TraceWavelength_2 = int(self.TraceWavelength_2.text())
+                # if self.TraceWavelengthChk_2.isChecked():
+                #     globals.TraceWavelength_2 = int(self.TraceWavelength_2.text())
                     ##!!! ADD OPTION FOR 2 OR 3 TRACE WAVELENGTHS
             
                 if (self.ScopeModeBtn.isChecked()):
@@ -1534,16 +1514,22 @@ class MainWindow(QMainWindow, MainWindow.Ui_MainWindow):
         self.RefMeasBtn.setEnabled(True)
         self.AbsorbanceModeBtn.setEnabled(True) ## enable Absorbance Mode
         self.StartMeasBtn.setEnabled(True) ## enable Start Measurement button
-        # self.DarkMeasBtn.setEnabled(True)
-        # self.RefMeasBtn.setEnabled(True)
-        # self.StatusLabel_Ref.setEnabled(True)
-        # self.LoadRefBtn.setEnabled(True)
-        # self.text_CurrentRef.setEnabled(True)
-        # self.Label_CurrentRef.setEnabled(True)
-        # self.text_CurrentCorrections.setEnabled(True)
-        # self.Label_CurrentCorrections.setEnabled(True)
-        # self.update_label_CurrentRef()
-        # self.reset_Data_Ref()
+    
+    def update_before_Meas(self):
+        self.StartMeasBtn.setEnabled(False)
+        self.StopMeasBtn.setEnabled(True)
+        self.label_MeasurementRunning.show() ## show warning label for measurement running
+        self.cancelled = False
+        print(f"{globals.AcquisitionMode} measurement started")
+    
+    def update_after_Meas(self, how="successful"):
+        self.StartMeasBtn.setEnabled(True)
+        self.StopMeasBtn.setEnabled(False)
+        self.label_MeasurementRunning.hide() ## hide label again after measurement finishes
+        if how == "successful":
+            print(f"{globals.AcquisitionMode} measurement finished successfully")
+        elif how == "stopped":
+            print(f"{globals.AcquisitionMode} measurement stopped by user")
     
     def PrintSettings(self):
         print(f"self.measconfig.m_IntegrationTime: {self.measconfig.m_IntegrationTime}")

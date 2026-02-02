@@ -518,7 +518,7 @@
          </rect>
         </property>
         <property name="text">
-         <string>Continuous (TO DO)</string>
+         <string>Continuous</string>
         </property>
        </widget>
        <widget class="QRadioButton" name="IrrKinRBtn">
@@ -1263,6 +1263,30 @@
          <bool>true</bool>
         </property>
        </widget>
+      </widget>
+      <widget class="QLabel" name="label_MeasurementRunning">
+       <property name="geometry">
+        <rect>
+         <x>490</x>
+         <y>300</y>
+         <width>281</width>
+         <height>31</height>
+        </rect>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>261</width>
+         <height>26</height>
+        </size>
+       </property>
+       <property name="font">
+        <font>
+         <pointsize>16</pointsize>
+        </font>
+       </property>
+       <property name="text">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#aa55ff;&quot;&gt;MEASUREMENT RUNNING!!!&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
       </widget>
      </widget>
      <widget class="QGroupBox" name="groupBox_8">
@@ -2105,7 +2129,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup_2"/>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
  </buttongroups>
 </ui>
