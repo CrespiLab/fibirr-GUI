@@ -1,49 +1,61 @@
-# fibirr-GUI
-**February 25<sup>th</sup>, 2026**
+# fibirr-core
 
-GUI for fibirr setup based on AvaSpec library
+`fibirr-core` is a small, GUI-independent Python interface for acquiring spectra
+from an Avantes spectrometer. It contains only the spectrometer lifecycle and
+single-spectrum acquisition code needed by the FIBIRR setup.
 
-## Installation
-Python 3.12 or higher is required
+The previous Qt interface, plotting, file handling, Arduino prototype, global
+state, vendor demos, and historical copies have intentionally been removed.
+Data processing and the forthcoming LED controller belong in separate modules
+that can coordinate this package without changing its AvaSpec layer.
 
-### Conda
-The Anaconda Powershell Prompt is a good tool.
-#### 1) Create a new Python environment and install pip
-```bash
-(base) conda create -n fibirr-GUI
-(base) conda activate fibirr-GUI
-(fibirr-GUI) conda install pip
+## Install
+
+Python 3.12 or newer is required.
+
+```powershell
+python -m pip install -e .
 ```
 
-#### 2) Download the source files
-##### Clone using URL at desired location (for example, Desktop):
-```bash
-(fibirr-GUI) conda install git
-(fibirr-GUI) cd Desktop
-(fibirr-GUI) \Desktop> git clone https://github.com/CrespiLab/fibirr-GUI.git
+The proprietary AvaSpec library is not distributed with this repository. Pass
+its path when constructing the spectrometer, or set the `AVASPEC_LIBRARY`
+environment variable. On 64-bit Windows the file is normally named
+`avaspecx64.dll`.
+
+## Acquire a spectrum
+
+```python
+from fibirr_core import AcquisitionSettings, AvantesSpectrometer
+
+settings = AcquisitionSettings(integration_time_ms=5.0, averages=1)
+
+with AvantesSpectrometer(library_path=r"C:\path\to\avaspecx64.dll") as spectrometer:
+    spectrum = spectrometer.acquire(settings)
+
+print(spectrum.wavelengths_nm[:5])
+print(spectrum.intensities[:5])
 ```
-A folder called "fibirr-GUI" is downloaded.
 
-#### 3) Add AvaSpec library
-- Inside `fibirr-GUI` directory, create a directory called `avantes`
-- Place DLL inside `avantes` directory (e.g., avaspecx64.dll)
+If several spectrometers are attached, select one explicitly:
 
-#### 4) Install
-```bash
-(fibirr-GUI) \Desktop> cd fibirr-GUI
-(fibirr-GUI) \Desktop\fibirr-GUI> pip install -e .
+```python
+spectrometer = AvantesSpectrometer(
+    serial_number="A1234567",
+    library_path=r"C:\path\to\avaspecx64.dll",
+)
 ```
 
-## Run
-Make sure to activate the environment, and then call the .pyw file using Python:
+`AvantesSpectrometer` owns only spectrometer concerns: discovery, connection,
+measurement configuration, polling, acquisition, stopping, and cleanup. A
+future LED controller should remain independent and call `acquire()` from an
+experiment coordinator. The private AvaSpec driver can also be replaced in
+tests, so higher-level timing logic does not require hardware.
 
+## Test
+
+```powershell
+python -m unittest discover -s tests -v
 ```
-(base) conda activate fibirr-GUI
-(fibirr-GUI) \Desktop\fibirr-GUI> python GUI.pyw
-```
-The GUI should appear after a short while.
 
-(*command-line script coming soon*)
-
-### Configuration
-The user can adjust the desired default settings in the `settings.py` file that is located in the folder `user`.
+The unit tests use a fake driver. A real-device smoke test is still required on
+the FIBIRR instrument whenever the AvaSpec DLL or spectrometer firmware changes.
